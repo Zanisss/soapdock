@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoapDock</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg:#0a0e14; --panel:#11161f; --panel2:#161d28; --line:#222c3a;
+    --txt:#d4dde8; --dim:#7d8a9c; --accent:#3ad6c4; --accent2:#2a9d8f;
+    --warn:#e0a458; --bad:#e06c75; --good:#56c596;
+    --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+  button{font-family:var(--sans);cursor:pointer}
+  input,select{font-family:var(--mono)}
+
+  /* ---- Login ---- */
+  #login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100}
+  #login .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:36px;width:340px}
+  #login h1{font-family:var(--mono);font-size:22px;letter-spacing:1px;margin-bottom:4px}
+  #login .sub{color:var(--dim);font-size:12px;margin-bottom:24px;font-family:var(--mono)}
+  #login input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:11px 12px;border-radius:6px;margin-bottom:12px;font-size:13px}
+  #login button{width:100%;background:var(--accent);color:#04110f;border:none;padding:12px;border-radius:6px;font-weight:700;font-size:14px}
+  #login .err{color:var(--bad);font-size:12px;font-family:var(--mono);margin-top:10px;min-height:16px}
+
+  /* ---- App shell ---- */
+  #app{display:none;max-width:1180px;margin:0 auto;padding:0 20px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid var(--line);margin-bottom:0;position:sticky;top:0;background:var(--bg);z-index:10}
+  .brand{font-family:var(--mono);font-size:20px;letter-spacing:1px;font-weight:600}
+  .brand b{color:var(--accent)}
+  .who{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .who a{color:var(--accent);cursor:pointer;margin-left:12px}
+
+  nav{display:flex;gap:4px;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:22px}
+  nav button{background:transparent;border:1px solid transparent;color:var(--dim);padding:8px 16px;border-radius:6px;font-family:var(--mono);font-size:13px;font-weight:500}
+  nav button:hover{color:var(--txt)}
+  nav button.on{background:var(--panel2);color:var(--accent);border-color:var(--line)}
+
+  .view{display:none}.view.on{display:block}
+
+  .row{display:flex;gap:18px;flex-wrap:wrap}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .card h2{font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:14px;font-weight:600}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--dim);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid var(--panel2)}
+  tr:hover td{background:var(--panel2)}
+  .mono{font-family:var(--mono)}
+  .num{font-family:var(--mono);text-align:right}
+  .dim{color:var(--dim)}
+
+  .btn{background:var(--accent);color:#04110f;border:none;padding:8px 14px;border-radius:6px;font-weight:600;font-size:13px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+
+  .field{margin-bottom:12px}
+  .field label{display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:5px}
+  .field input,.field select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:9px 10px;border-radius:6px;font-size:13px}
+
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+  .pill.fd{color:var(--warn);border-color:var(--warn)}
+  .pill.sd{color:var(--accent);border-color:var(--accent2)}
+
+  .stat{flex:1;min-width:150px}
+  .stat .v{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent)}
+  .stat .l{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-top:2px}
+
+  .empty{color:var(--dim);font-family:var(--mono);font-size:13px;padding:20px;text-align:center}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--panel2);border:1px solid var(--accent2);color:var(--txt);padding:12px 18px;border-radius:8px;font-family:var(--mono);font-size:13px;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+
+  .ingline{display:grid;grid-template-columns:1fr 90px 34px;gap:8px;margin-bottom:8px;align-items:center}
+  .ingline select,.ingline input{margin:0}
+  .ingline .x{background:transparent;border:1px solid var(--line);color:var(--bad);border-radius:6px;padding:8px 0;font-family:var(--mono)}
+
+  .margin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px}
+  .margin-box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px}
+  .margin-box .pct{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .margin-box .price{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--good);margin-top:4px}
+  .margin-box .sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
+
+  .sync{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .sync.live{color:var(--good)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="box">
+    <h1>Soap<b>Dock</b></h1>
+    <div class="sub">black bow market · ops</div>
+    <input id="email" type="email" placeholder="email" autocomplete="username">
+    <input id="pass" type="password" placeholder="password" autocomplete="current-password">
+    <button id="loginBtn">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="brand">Soap<b>Dock</b></div>
+    <div class="who"><span class="sync" id="syncState">connecting…</span><span id="whoEmail"></span><a id="logout">log out</a></div>
+  </header>
+
+  <nav>
+    <button data-v="dash" class="on">Dashboard</button>
+    <button data-v="price">Pricing</button>
+    <button data-v="batches">Batches</button>
+    <button data-v="recipes">Recipes</button>
+    <button data-v="ingredients">Ingredients</button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <div class="view on" id="v-dash">
+    <div class="row" style="margin-bottom:18px">
+      <div class="card stat"><div class="v" id="s-batches">0</div><div class="l">Batches logged</div></div>
+      <div class="card stat"><div class="v" id="s-recipes">0</div><div class="l">Recipes</div></div>
+      <div class="card stat"><div class="v" id="s-bars">0</div><div class="l">Bars made</div></div>
+      <div class="card stat"><div class="v" id="s-ing">0</div><div class="l">Ingredients</div></div>
+    </div>
+    <div class="card">
+      <h2>Recent batches from the bench</h2>
+      <table><thead><tr><th>Date</th><th>Recipe</th><th>By</th><th class="num">Bars</th><th class="num">Cost/bar</th></tr></thead>
+      <tbody id="dashBatches"></tbody></table>
+      <div class="empty" id="dashEmpty">No batches logged yet.</div>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div class="view" id="v-price">
+    <div class="card">
+      <h2>Price a bar</h2>
+      <div class="row">
+        <div class="field" style="flex:2;min-width:240px">
+          <label>Recipe</label>
+          <select id="priceRecipe"></select>
+        </div>
+        <div class="field" style="flex:1;min-width:120px">
+          <label>Extra margins (comma %)</label>
+          <input id="priceMargins" value="10, 15, 20, 25, 30">
+        </div>
+      </div>
+      <div id="priceResult"></div>
+    </div>
+  </div>
+
+  <!-- BATCHES -->
+  <div class="view" id="v-batches">
+    <div class="card">
+      <h2>All batches</h2>
+      <table><thead><tr><th>Date</th><th>Recipe</th><th>By</th><th class="num">Bars</th><th class="num">Batch cost</th><th class="num">Cost/bar</th><th></th></tr></thead>
+      <tbody id="batchRows"></tbody></table>
+      <div class="empty" id="batchEmpty">No batches yet.</div>
+    </div>
+  </div>
+
+  <!-- RECIPES -->
+  <div class="view" id="v-recipes">
+    <div class="row">
+      <div class="card" style="flex:1;min-width:300px">
+        <h2 id="recipeFormTitle">New recipe</h2>
+        <div class="field"><label>Name</label><input id="rName" placeholder="e.g. Lavender Oatmeal"></div>
+        <div class="field"><label>Bars per batch</label><input id="rBars" type="number" value="10" min="1"></div>
+        <label style="display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px">Ingredients</label>
+        <div id="rIngs"></div>
+        <button class="btn ghost sm" id="rAddIng" style="margin:4px 0 14px">+ ingredient</button>
+        <div><button class="btn" id="rSave">Save recipe</button> <button class="btn ghost" id="rClear" style="display:none">Cancel edit</button></div>
+      </div>
+      <div class="card" style="flex:1.4;min-width:340px">
+        <h2>Recipes</h2>
+        <table><thead><tr><th>Name</th><th>Source</th><th class="num">Bars</th><th class="num">Cost/bar</th><th></th></tr></thead>
+        <tbody id="recipeRows"></tbody></table>
+        <div class="empty" id="recipeEmpty">No recipes yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INGREDIENTS -->
+  <div class="view" id="v-ingredients">
+    <div class="row">
+      <div class="card" style="flex:1;min-width:280px">
+        <h2 id="ingFormTitle">New ingredient</h2>
+        <div class="field"><label>Name</label><input id="iName" placeholder="e.g. Olive Oil"></div>
+        <div class="field"><label>Unit</label>
+          <select id="iUnit"><option value="g">g (gram)</option><option value="ml">ml</option><option value="oz">oz</option><option value="each">each</option></select>
+        </div>
+        <div class="field"><label>Cost per unit ($)</label><input id="iCost" type="number" step="0.0001" value="0"></div>
+        <div class="field"><label>Qty on hand</label><input id="iQty" type="number" step="0.01" value="0"></div>
+        <div><button class="btn" id="iSave">Save ingredient</button> <button class="btn ghost" id="iClear" style="display:none">Cancel edit</button></div>
+      </div>
+      <div class="card" style="flex:1.5;min-width:340px">
+        <h2>Cost inventory</h2>
+        <table><thead><tr><th>Ingredient</th><th>Unit</th><th class="num">Cost/unit</th><th class="num">On hand</th><th></th></tr></thead>
+        <tbody id="ingRows"></tbody></table>
+        <div class="empty" id="ingEmpty">No ingredients yet.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  SoapDock config  —  your Supabase project
+// ============================================================
+const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cmVvZWlibmZmcXF1cHF5bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDA3NzEsImV4cCI6MjA5NjYxNjc3MX0.U6NBONS7pWbw5v9cMJf2-K9u-ToS97FP7jGilg2682g";
+// ============================================================
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// local cache
+let ING = [], REC = [], BAT = [];
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const money = n => '$' + (Number(n)||0).toFixed(2);
+const money4 = n => '$' + (Number(n)||0).toFixed(4);
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+
+// ---------- AUTH ----------
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session) showApp(session); else $('#login').style.display='flex';
+}
+$('#loginBtn').onclick = async ()=>{
+  const email=$('#email').value.trim(), password=$('#pass').value;
+  $('#loginErr').textContent='';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ $('#loginErr').textContent=error.message; return; }
+  showApp(data.session);
+};
+$('#pass').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#loginBtn').click(); });
+$('#logout').onclick = async ()=>{ await sb.auth.signOut(); location.reload(); };
+
+function showApp(session){
+  $('#login').style.display='none';
+  $('#app').style.display='block';
+  $('#whoEmail').textContent = session.user.email;
+  loadAll();
+  subscribe();
+}
+
+// ---------- DATA ----------
+async function loadAll(){
+  const [i,r,b] = await Promise.all([
+    sb.from('ingredients').select('*').order('name'),
+    sb.from('recipes').select('*').order('name'),
+    sb.from('batches').select('*').order('made_on',{ascending:false})
+  ]);
+  ING = i.data||[]; REC = r.data||[]; BAT = b.data||[];
+  renderAll();
+}
+
+function subscribe(){
+  sb.channel('soapdock')
+    .on('postgres_changes',{event:'*',schema:'public'},()=>loadAll())
+    .subscribe(status=>{
+      const el=$('#syncState');
+      if(status==='SUBSCRIBED'){ el.textContent='live sync'; el.classList.add('live'); }
+      else { el.textContent='offline'; el.classList.remove('live'); }
+    });
+}
+
+// ---------- COST MATH ----------
+function ingById(id){ return ING.find(x=>x.id===id); }
+
+// cost of one batch of a recipe (sum of ingredient qty * cost/unit)
+function recipeBatchCost(rec){
+  let c=0;
+  (rec.ingredients||[]).forEach(line=>{
+    const ing=ingById(line.ingredient_id);
+    if(ing) c += (Number(line.qty)||0) * (Number(ing.cost_per_unit)||0);
+  });
+  return c;
+}
+function recipeBarCost(rec){
+  const bars = Number(rec.bars_per_batch)||1;
+  return recipeBatchCost(rec) / (bars||1);
+}
+// TRUE MARGIN pricing: price = cost / (1 - margin)
+function priceAtMargin(cost, marginPct){
+  const m = (Number(marginPct)||0)/100;
+  if(m>=1) return 0;
+  return cost / (1 - m);
+}
+
+// ---------- RENDER ----------
+function renderAll(){ renderDash(); renderIngredients(); renderRecipes(); renderBatches(); renderPriceRecipes(); }
+
+function renderDash(){
+  $('#s-batches').textContent = BAT.length;
+  $('#s-recipes').textContent = REC.length;
+  $('#s-bars').textContent = BAT.reduce((a,b)=>a+(Number(b.bars_made)||0),0);
+  $('#s-ing').textContent = ING.length;
+  const rows = BAT.slice(0,8);
+  $('#dashEmpty').style.display = rows.length?'none':'block';
+  $('#dashBatches').innerHTML = rows.map(b=>{
+    const rec = REC.find(r=>r.id===b.recipe_id);
+    const barCost = rec ? recipeBarCost(rec) : '';
+    return `<tr><td class="mono">${b.made_on}</td><td>${esc(b.recipe_name)}</td><td class="dim">${esc(b.logged_by||'')}</td><td class="num">${b.bars_made}</td><td class="num">${barCost!==''?money(barCost):'—'}</td></tr>`;
+  }).join('');
+}
+
+function renderIngredients(){
+  $('#ingEmpty').style.display = ING.length?'none':'block';
+  $('#ingRows').innerHTML = ING.map(i=>`
+    <tr><td>${esc(i.name)}</td><td class="dim mono">${i.unit}</td>
+    <td class="num">${money4(i.cost_per_unit)}</td><td class="num">${i.qty_on_hand}</td>
+    <td class="num"><button class="btn ghost sm" onclick="editIng('${i.id}')">edit</button> <button class="btn danger sm" onclick="delIng('${i.id}')">×</button></td></tr>`).join('');
+}
+
+function renderRecipes(){
+  $('#recipeEmpty').style.display = REC.length?'none':'block';
+  $('#recipeRows').innerHTML = REC.map(r=>{
+    const src = r.source==='formulationdock'?'<span class="pill fd">FormulationDock</span>':'<span class="pill sd">SoapDock</span>';
+    return `<tr><td>${esc(r.name)}</td><td>${src}</td><td class="num">${r.bars_per_batch}</td><td class="num">${money(recipeBarCost(r))}</td>
+    <td class="num"><button class="btn ghost sm" onclick="editRec('${r.id}')">edit</button> <button class="btn danger sm" onclick="delRec('${r.id}')">×</button></td></tr>`;
+  }).join('');
+}
+
+function renderBatches(){
+  $('#batchEmpty').style.display = BAT.length?'none':'block';
+  $('#batchRows').innerHTML = BAT.map(b=>{
+    const rec = REC.find(r=>r.id===b.recipe_id);
+    const batchCost = rec ? recipeBatchCost(rec) : null;
+    const barCost = rec ? recipeBarCost(rec) : null;
+    return `<tr><td class="mono">${b.made_on}</td><td>${esc(b.recipe_name)}</td><td class="dim">${esc(b.logged_by||'')}</td>
+    <td class="num">${b.bars_made}</td><td class="num">${batchCost!=null?money(batchCost):'—'}</td><td class="num">${barCost!=null?money(barCost):'—'}</td>
+    <td class="num"><button class="btn danger sm" onclick="delBatch('${b.id}')">×</button></td></tr>`;
+  }).join('');
+}
+
+function renderPriceRecipes(){
+  const sel=$('#priceRecipe');
+  const cur=sel.value;
+  sel.innerHTML = REC.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');
+  if(cur) sel.value=cur;
+  renderPrice();
+}
+
+function renderPrice(){
+  const rec = REC.find(r=>r.id===$('#priceRecipe').value);
+  if(!rec){ $('#priceResult').innerHTML='<div class="empty">No recipe selected.</div>'; return; }
+  const barCost = recipeBarCost(rec);
+  const batchCost = recipeBatchCost(rec);
+  const bars = Number(rec.bars_per_batch)||1;
+  const margins = $('#priceMargins').value.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
+  const boxes = margins.map(m=>{
+    const perBar = priceAtMargin(barCost,m);
+    const perBatch = perBar*bars;
+    return `<div class="margin-box"><div class="pct">${m}% margin</div><div class="price">${money(perBar)}</div><div class="sub">per bar · batch ${money(perBatch)}</div></div>`;
+  }).join('');
+  $('#priceResult').innerHTML = `
+    <div class="row" style="margin:8px 0 4px">
+      <div class="stat"><div class="v">${money(barCost)}</div><div class="l">Cost / bar</div></div>
+      <div class="stat"><div class="v">${money(batchCost)}</div><div class="l">Cost / batch (${bars} bars)</div></div>
+    </div>
+    <div class="margin-grid">${boxes}</div>
+    <p class="dim mono" style="font-size:11px;margin-top:14px">Margin = profit ÷ selling price.  price = cost ÷ (1 − margin)</p>`;
+}
+$('#priceRecipe').onchange=renderPrice;
+$('#priceMargins').oninput=renderPrice;
+
+// ---------- INGREDIENT CRUD ----------
+let editingIng=null;
+$('#iSave').onclick = async ()=>{
+  const rec={ name:$('#iName').value.trim(), unit:$('#iUnit').value,
+    cost_per_unit:parseFloat($('#iCost').value)||0, qty_on_hand:parseFloat($('#iQty').value)||0, updated_at:new Date().toISOString() };
+  if(!rec.name){ toast('Name required'); return; }
+  if(editingIng){ await sb.from('ingredients').update(rec).eq('id',editingIng); }
+  else { await sb.from('ingredients').insert(rec); }
+  clearIngForm(); toast('Ingredient saved'); loadAll();
+};
+window.editIng=id=>{ const i=ingById(id); if(!i)return; editingIng=id;
+  $('#iName').value=i.name; $('#iUnit').value=i.unit; $('#iCost').value=i.cost_per_unit; $('#iQty').value=i.qty_on_hand;
+  $('#ingFormTitle').textContent='Edit ingredient'; $('#iClear').style.display='inline-block';
+  $('#v-ingredients').scrollIntoView({behavior:'smooth'}); };
+window.delIng=async id=>{ if(!confirm('Delete this ingredient?'))return; await sb.from('ingredients').delete().eq('id',id); toast('Deleted'); loadAll(); };
+$('#iClear').onclick=clearIngForm;
+function clearIngForm(){ editingIng=null; $('#iName').value=''; $('#iCost').value='0'; $('#iQty').value='0'; $('#iUnit').value='g';
+  $('#ingFormTitle').textContent='New ingredient'; $('#iClear').style.display='none'; }
+
+// ---------- RECIPE CRUD ----------
+let editingRec=null;
+function ingOptions(sel){ return ING.map(i=>`<option value="${i.id}" ${i.id===sel?'selected':''}>${esc(i.name)} (${i.unit})</option>`).join(''); }
+function addIngLine(ingredient_id='',qty=''){
+  const div=document.createElement('div'); div.className='ingline';
+  div.innerHTML=`<select>${ingOptions(ingredient_id)}</select><input type="number" step="0.01" placeholder="qty" value="${qty}"><button class="x">×</button>`;
+  div.querySelector('.x').onclick=()=>div.remove();
+  $('#rIngs').appendChild(div);
+}
+$('#rAddIng').onclick=()=>{ if(!ING.length){ toast('Add ingredients first'); return; } addIngLine(); };
+$('#rSave').onclick = async ()=>{
+  const name=$('#rName').value.trim(); if(!name){ toast('Name required'); return; }
+  const lines=[...$('#rIngs').querySelectorAll('.ingline')].map(d=>({
+    ingredient_id:d.querySelector('select').value, qty:parseFloat(d.querySelector('input').value)||0
+  })).filter(l=>l.ingredient_id&&l.qty>0);
+  const rec={ name, bars_per_batch:parseFloat($('#rBars').value)||1, ingredients:lines, source:'soapdock', updated_at:new Date().toISOString() };
+  if(editingRec){ await sb.from('recipes').update(rec).eq('id',editingRec); }
+  else { await sb.from('recipes').insert(rec); }
+  clearRecForm(); toast('Recipe saved'); loadAll();
+};
+window.editRec=id=>{ const r=REC.find(x=>x.id===id); if(!r)return; editingRec=id;
+  $('#rName').value=r.name; $('#rBars').value=r.bars_per_batch; $('#rIngs').innerHTML='';
+  (r.ingredients||[]).forEach(l=>addIngLine(l.ingredient_id,l.qty));
+  $('#recipeFormTitle').textContent='Edit recipe'; $('#rClear').style.display='inline-block';
+  $('#v-recipes').scrollIntoView({behavior:'smooth'}); };
+window.delRec=async id=>{ if(!confirm('Delete this recipe?'))return; await sb.from('recipes').delete().eq('id',id); toast('Deleted'); loadAll(); };
+$('#rClear').onclick=clearRecForm;
+function clearRecForm(){ editingRec=null; $('#rName').value=''; $('#rBars').value='10'; $('#rIngs').innerHTML='';
+  $('#recipeFormTitle').textContent='New recipe'; $('#rClear').style.display='none'; }
+
+// ---------- BATCH ----------
+window.delBatch=async id=>{ if(!confirm('Delete this batch?'))return; await sb.from('batches').delete().eq('id',id); toast('Deleted'); loadAll(); };
+
+// ---------- NAV ----------
+$$('nav button').forEach(b=>b.onclick=()=>{
+  $$('nav button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  $$('.view').forEach(v=>v.classList.remove('on')); $('#v-'+b.dataset.v).classList.add('on');
+});
+
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+init();
+</script>
+</body>
+</html>

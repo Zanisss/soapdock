@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SoapDock">
+<title>SoapDock · Bench</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+  :root{
+    --bg:#0a0e14; --panel:#141b26; --panel2:#1c2533; --line:#2a3546;
+    --txt:#e6edf5; --dim:#8493a6; --accent:#3ad6c4; --good:#56c596; --warn:#e0a458;
+    --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);min-height:100vh;font-size:18px}
+  button{font-family:var(--sans);cursor:pointer;font-size:18px}
+  input,select{font-family:var(--sans);font-size:20px}
+
+  #login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
+  #login .box{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px}
+  #login h1{font-family:var(--mono);font-size:28px;text-align:center;margin-bottom:4px}
+  #login h1 b{color:var(--accent)}
+  #login .sub{text-align:center;color:var(--dim);font-family:var(--mono);font-size:14px;margin-bottom:28px}
+  #login input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:16px;border-radius:12px;margin-bottom:14px}
+  #login button{width:100%;background:var(--accent);color:#04110f;border:none;padding:18px;border-radius:12px;font-weight:700;font-size:20px}
+  #login .err{color:#e06c75;font-family:var(--mono);font-size:14px;text-align:center;margin-top:14px;min-height:18px}
+
+  #app{display:none;max-width:560px;margin:0 auto;padding:20px 18px 120px}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 20px}
+  .top .brand{font-family:var(--mono);font-size:22px}.top .brand b{color:var(--accent)}
+  .top .who{font-family:var(--mono);font-size:13px;color:var(--dim)}
+  .top .who a{color:var(--accent);margin-left:10px}
+
+  .screen{display:none}.screen.on{display:block}
+
+  .big-btn{width:100%;background:var(--accent);color:#04110f;border:none;padding:22px;border-radius:16px;font-weight:700;font-size:21px;margin-bottom:14px}
+  .big-btn.alt{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  .big-btn.good{background:var(--good)}
+
+  h2{font-family:var(--mono);font-size:15px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:24px 0 12px}
+
+  .recipe-card{width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:12px;color:var(--txt);display:flex;justify-content:space-between;align-items:center}
+  .recipe-card:active{background:var(--panel2)}
+  .recipe-card .nm{font-size:20px;font-weight:600}
+  .recipe-card .meta{font-family:var(--mono);font-size:13px;color:var(--dim);margin-top:3px}
+  .recipe-card .arrow{color:var(--accent);font-size:24px;font-family:var(--mono)}
+
+  .field{margin-bottom:18px}
+  .field label{display:block;font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px}
+  .field input,.field select{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:16px;border-radius:12px}
+
+  .stepper{display:flex;align-items:center;gap:14px}
+  .stepper button{width:64px;height:64px;border-radius:14px;background:var(--panel2);border:1px solid var(--line);color:var(--accent);font-size:30px;font-family:var(--mono)}
+  .stepper input{flex:1;text-align:center;font-family:var(--mono);font-size:30px;font-weight:600;padding:14px}
+
+  .ingline{display:grid;grid-template-columns:1fr 88px 48px;gap:8px;margin-bottom:10px;align-items:center}
+  .ingline select,.ingline input{padding:12px;font-size:16px}
+  .ingline .x{height:100%;background:var(--panel2);border:1px solid var(--line);color:#e06c75;border-radius:10px;font-family:var(--mono)}
+  .addrow{background:transparent;border:1px dashed var(--line);color:var(--accent);width:100%;padding:14px;border-radius:12px;font-family:var(--mono);margin-bottom:18px}
+
+  .crumb{font-family:var(--mono);font-size:14px;color:var(--accent);margin-bottom:16px;display:inline-block}
+  .done{text-align:center;padding:50px 20px}
+  .done .check{font-size:64px;color:var(--good);font-family:var(--mono)}
+  .done .msg{font-size:22px;margin:16px 0 6px}
+  .done .sub{color:var(--dim);font-family:var(--mono);font-size:14px}
+
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);color:var(--txt);padding:14px 22px;border-radius:12px;font-family:var(--mono);font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+  .sync{font-family:var(--mono);font-size:11px;color:var(--dim)}.sync.live{color:var(--good)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="box">
+    <h1>Soap<b>Dock</b></h1>
+    <div class="sub">the bench</div>
+    <input id="email" type="email" placeholder="email" autocomplete="username" autocapitalize="none">
+    <input id="pass" type="password" placeholder="password" autocomplete="current-password">
+    <button id="loginBtn">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="top">
+    <div class="brand">Soap<b>Dock</b></div>
+    <div class="who"><span class="sync" id="syncState"></span> <a id="logout">log out</a></div>
+  </div>
+
+  <!-- HOME -->
+  <div class="screen on" id="s-home">
+    <button class="big-btn" id="goLog">Log a batch I made</button>
+    <button class="big-btn alt" id="goNew">+ New recipe</button>
+    <h2>Recent</h2>
+    <div id="recentList"></div>
+  </div>
+
+  <!-- PICK RECIPE -->
+  <div class="screen" id="s-pick">
+    <a class="crumb" onclick="go('home')">‹ back</a>
+    <h2>Which soap did you make?</h2>
+    <div id="pickList"></div>
+  </div>
+
+  <!-- LOG BATCH -->
+  <div class="screen" id="s-log">
+    <a class="crumb" onclick="go('pick')">‹ back</a>
+    <div id="logRecipeName" style="font-size:24px;font-weight:700;margin-bottom:6px"></div>
+    <div id="logRecipeMeta" class="sync" style="margin-bottom:20px"></div>
+    <div class="field">
+      <label>How many bars did this batch make?</label>
+      <div class="stepper">
+        <button onclick="bump(-1)">−</button>
+        <input id="barsMade" type="number" inputmode="numeric" value="10">
+        <button onclick="bump(1)">+</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Date made</label>
+      <input id="madeOn" type="date">
+    </div>
+    <button class="big-btn good" id="saveBatch">Save batch</button>
+  </div>
+
+  <!-- NEW RECIPE -->
+  <div class="screen" id="s-new">
+    <a class="crumb" onclick="go('home')">‹ back</a>
+    <h2>New recipe</h2>
+    <div class="field"><label>Recipe name</label><input id="nName" placeholder="e.g. Honey Almond"></div>
+    <div class="field"><label>Bars this recipe makes</label><input id="nBars" type="number" inputmode="numeric" value="10"></div>
+    <label style="display:block;font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:10px">Ingredients (optional — Troy can add costs later)</label>
+    <div id="nIngs"></div>
+    <button class="addrow" id="nAdd">+ add ingredient</button>
+    <button class="big-btn" id="saveRecipe">Save recipe</button>
+  </div>
+
+  <!-- DONE -->
+  <div class="screen" id="s-done">
+    <div class="done">
+      <div class="check">✓</div>
+      <div class="msg" id="doneMsg">Saved!</div>
+      <div class="sub">Troy will see it on his side.</div>
+      <button class="big-btn" style="margin-top:30px" onclick="go('home')">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  SoapDock config  —  same Supabase project as the desktop app
+// ============================================================
+const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cmVvZWlibmZmcXF1cHF5bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDA3NzEsImV4cCI6MjA5NjYxNjc3MX0.U6NBONS7pWbw5v9cMJf2-K9u-ToS97FP7jGilg2682g";
+// ============================================================
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+let REC=[], BAT=[], ING=[], chosen=null, userEmail='';
+const $=s=>document.querySelector(s);
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+
+async function init(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session) start(session); else $('#login').style.display='flex';
+}
+$('#loginBtn').onclick=async()=>{
+  const email=$('#email').value.trim(),password=$('#pass').value; $('#loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){$('#loginErr').textContent=error.message;return;}
+  start(data.session);
+};
+$('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
+$('#logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
+
+function start(session){
+  $('#login').style.display='none'; $('#app').style.display='block';
+  userEmail=session.user.email; $('#madeOn').value=new Date().toISOString().slice(0,10);
+  load(); subscribe();
+}
+async function load(){
+  const [r,b,i]=await Promise.all([
+    sb.from('recipes').select('*').order('name'),
+    sb.from('batches').select('*').order('made_on',{ascending:false}).limit(8),
+    sb.from('ingredients').select('*').order('name')
+  ]);
+  REC=r.data||[]; BAT=b.data||[]; ING=i.data||[];
+  renderRecent(); renderPick();
+}
+function subscribe(){
+  sb.channel('bench').on('postgres_changes',{event:'*',schema:'public'},()=>load())
+    .subscribe(st=>{const e=$('#syncState'); if(st==='SUBSCRIBED'){e.textContent='live';e.classList.add('live');}else{e.textContent='offline';e.classList.remove('live');}});
+}
+
+function renderRecent(){
+  $('#recentList').innerHTML = BAT.length? BAT.map(b=>`
+    <div class="recipe-card"><div><div class="nm">${esc(b.recipe_name)}</div>
+    <div class="meta">${b.made_on} · ${b.bars_made} bars</div></div></div>`).join('')
+    : '<div class="sync" style="padding:10px 2px">No batches yet — tap “Log a batch”.</div>';
+}
+function renderPick(){
+  $('#pickList').innerHTML = REC.length? REC.map(r=>`
+    <button class="recipe-card" onclick="pick('${r.id}')"><div><div class="nm">${esc(r.name)}</div>
+    <div class="meta">makes ${r.bars_per_batch} bars</div></div><div class="arrow">›</div></button>`).join('')
+    : '<div class="sync" style="padding:10px 2px">No recipes yet — tap back, then “New recipe”.</div>';
+}
+
+window.go=s=>{ document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on')); $('#s-'+s).classList.add('on'); window.scrollTo(0,0); };
+$('#goLog').onclick=()=>{ if(!REC.length){toast('Add a recipe first');go('new');return;} go('pick'); };
+$('#goNew').onclick=()=>{ $('#nIngs').innerHTML=''; $('#nName').value=''; $('#nBars').value='10'; go('new'); };
+
+window.pick=id=>{ chosen=REC.find(r=>r.id===id); if(!chosen)return;
+  $('#logRecipeName').textContent=chosen.name;
+  $('#logRecipeMeta').textContent='usually makes '+chosen.bars_per_batch+' bars';
+  $('#barsMade').value=chosen.bars_per_batch;
+  $('#madeOn').value=new Date().toISOString().slice(0,10);
+  go('log'); };
+window.bump=d=>{ const el=$('#barsMade'); el.value=Math.max(0,(parseInt(el.value)||0)+d); };
+
+$('#saveBatch').onclick=async()=>{
+  if(!chosen)return;
+  const rec={ recipe_id:chosen.id, recipe_name:chosen.name,
+    bars_made:parseInt($('#barsMade').value)||0, made_on:$('#madeOn').value,
+    ingredients_used:chosen.ingredients||[], logged_by:userEmail };
+  const {error}=await sb.from('batches').insert(rec);
+  if(error){toast('Error: '+error.message);return;}
+  $('#doneMsg').textContent=chosen.name+' logged!'; go('done'); load();
+};
+
+// new recipe ingredient lines
+function ingOpts(sel){ return '<option value="">— pick —</option>'+ING.map(i=>`<option value="${i.id}" ${i.id===sel?'selected':''}>${esc(i.name)}</option>`).join(''); }
+function addLine(id='',qty=''){
+  const d=document.createElement('div'); d.className='ingline';
+  d.innerHTML=`<select>${ingOpts(id)}</select><input type="number" inputmode="decimal" placeholder="qty" value="${qty}"><button class="x">×</button>`;
+  d.querySelector('.x').onclick=()=>d.remove(); $('#nIngs').appendChild(d);
+}
+$('#nAdd').onclick=()=>addLine();
+$('#saveRecipe').onclick=async()=>{
+  const name=$('#nName').value.trim(); if(!name){toast('Name the recipe');return;}
+  const lines=[...$('#nIngs').querySelectorAll('.ingline')].map(d=>({
+    ingredient_id:d.querySelector('select').value, qty:parseFloat(d.querySelector('input').value)||0
+  })).filter(l=>l.ingredient_id&&l.qty>0);
+  const rec={ name, bars_per_batch:parseInt($('#nBars').value)||1, ingredients:lines, source:'soapdock' };
+  const {error}=await sb.from('recipes').insert(rec);
+  if(error){toast('Error: '+error.message);return;}
+  $('#doneMsg').textContent=name+' added!'; go('done'); load();
+};
+
+init();
+</script>
+</body>
+</html>
