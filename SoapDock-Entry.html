@@ -1,76 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SoapDock">
-<title>SoapDock · Bench</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>SoapDock · Make Soap</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
   :root{
-    --bg:#0a0e14; --panel:#141b26; --panel2:#1c2533; --line:#2a3546;
-    --txt:#e6edf5; --dim:#8493a6; --accent:#3ad6c4; --good:#56c596; --warn:#e0a458;
-    --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+    --bg:#0c1015; --panel:#141a21; --panel2:#1a222b; --line:#26303b;
+    --txt:#e6edf3; --dim:#8b97a4; --accent:#34e3c0; --accent2:#2bd0af;
+    --warn:#f0a830; --bad:#ff6b6b; --good:#34e3a0; --blue:#5aa9ff; --violet:#b78bff;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);min-height:100vh;font-size:18px}
-  button{font-family:var(--sans);cursor:pointer;font-size:18px}
-  input,select{font-family:var(--sans);font-size:20px}
-
-  #login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
-  #login .box{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px}
-  #login h1{font-family:var(--mono);font-size:28px;text-align:center;margin-bottom:4px}
+  html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:17px;-webkit-text-size-adjust:100%}
+  body{padding-bottom:90px}
+  .mono{font-family:var(--mono)}
+  .dim{color:var(--dim)}
+  #login{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+  #login .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:100%;max-width:420px}
+  #login h1{font-family:var(--mono);font-weight:600;font-size:28px;margin-bottom:4px}
   #login h1 b{color:var(--accent)}
-  #login .sub{text-align:center;color:var(--dim);font-family:var(--mono);font-size:14px;margin-bottom:28px}
-  #login input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:16px;border-radius:12px;margin-bottom:14px}
-  #login button{width:100%;background:var(--accent);color:#04110f;border:none;padding:18px;border-radius:12px;font-weight:700;font-size:20px}
-  #login .err{color:#e06c75;font-family:var(--mono);font-size:14px;text-align:center;margin-top:14px;min-height:18px}
-
-  #app{display:none;max-width:560px;margin:0 auto;padding:20px 18px 120px}
-  .top{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 20px}
-  .top .brand{font-family:var(--mono);font-size:22px}.top .brand b{color:var(--accent)}
-  .top .who{font-family:var(--mono);font-size:13px;color:var(--dim)}
-  .top .who a{color:var(--accent);margin-left:10px}
-
-  .screen{display:none}.screen.on{display:block}
-
-  .big-btn{width:100%;background:var(--accent);color:#04110f;border:none;padding:22px;border-radius:16px;font-weight:700;font-size:21px;margin-bottom:14px}
-  .big-btn.alt{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
-  .big-btn.good{background:var(--good)}
-
-  h2{font-family:var(--mono);font-size:15px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:24px 0 12px}
-
-  .recipe-card{width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:12px;color:var(--txt);display:flex;justify-content:space-between;align-items:center}
-  .recipe-card:active{background:var(--panel2)}
-  .recipe-card .nm{font-size:20px;font-weight:600}
-  .recipe-card .meta{font-family:var(--mono);font-size:13px;color:var(--dim);margin-top:3px}
-  .recipe-card .arrow{color:var(--accent);font-size:24px;font-family:var(--mono)}
-
-  .field{margin-bottom:18px}
-  .field label{display:block;font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px}
-  .field input,.field select{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:16px;border-radius:12px}
-
-  .stepper{display:flex;align-items:center;gap:14px}
-  .stepper button{width:64px;height:64px;border-radius:14px;background:var(--panel2);border:1px solid var(--line);color:var(--accent);font-size:30px;font-family:var(--mono)}
-  .stepper input{flex:1;text-align:center;font-family:var(--mono);font-size:30px;font-weight:600;padding:14px}
-
-  .ingline{display:grid;grid-template-columns:1fr 88px 48px;gap:8px;margin-bottom:10px;align-items:center}
-  .ingline select,.ingline input{padding:12px;font-size:16px}
-  .ingline .x{height:100%;background:var(--panel2);border:1px solid var(--line);color:#e06c75;border-radius:10px;font-family:var(--mono)}
-  .addrow{background:transparent;border:1px dashed var(--line);color:var(--accent);width:100%;padding:14px;border-radius:12px;font-family:var(--mono);margin-bottom:18px}
-
-  .crumb{font-family:var(--mono);font-size:14px;color:var(--accent);margin-bottom:16px;display:inline-block}
-  .done{text-align:center;padding:50px 20px}
-  .done .check{font-size:64px;color:var(--good);font-family:var(--mono)}
-  .done .msg{font-size:22px;margin:16px 0 6px}
-  .done .sub{color:var(--dim);font-family:var(--mono);font-size:14px}
-
-  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);color:var(--txt);padding:14px 22px;border-radius:12px;font-family:var(--mono);font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
-  .toast.show{opacity:1}
-  .sync{font-family:var(--mono);font-size:11px;color:var(--dim)}.sync.live{color:var(--good)}
+  #login .sub{color:var(--dim);font-family:var(--mono);font-size:13px;margin-bottom:24px}
+  input,select,textarea{font-family:var(--sans);font-size:17px}
+  #login input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:15px;border-radius:10px;margin-bottom:14px}
+  .bigbtn{width:100%;background:var(--accent);color:#04110f;border:none;padding:16px;border-radius:10px;font-weight:700;font-size:18px;cursor:pointer}
+  .bigbtn:active{background:var(--accent2)}
+  #loginErr{color:var(--bad);font-size:14px;min-height:18px;font-family:var(--mono);margin-top:6px}
+  header{position:sticky;top:0;z-index:30;background:rgba(12,16,21,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+  header .logo{font-family:var(--mono);font-weight:600;font-size:20px}
+  header .logo b{color:var(--accent)}
+  header .who{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  #app{display:none}
+  .wrap{padding:18px;max-width:720px;margin:0 auto}
+  h2.sec{font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:8px 0 14px;font-weight:600}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .pickcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:12px;cursor:pointer;transition:.12s;display:flex;justify-content:space-between;align-items:center}
+  .pickcard:active{background:var(--panel2);border-color:var(--accent)}
+  .pickcard .nm{font-size:20px;font-weight:600}
+  .pickcard .meta{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:4px}
+  .pickcard .arr{color:var(--accent);font-size:24px}
+  .ro-head{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:14px;margin-bottom:14px}
+  .ro-head .k{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px;display:block}
+  .ro-head b{font-size:18px;color:var(--accent)}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono)}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);padding:8px 6px;border-bottom:1px solid var(--line);font-weight:600}
+  td{padding:11px 6px;border-bottom:1px solid var(--line);font-size:15px}
+  td.num,th.num{text-align:right}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:middle}
+  .warn{color:var(--warn);font-family:var(--mono);font-size:13px;margin-top:10px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:7px}
+  .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:14px;border-radius:10px}
+  .field textarea{min-height:70px;resize:vertical}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fragrow{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+  .micas{display:flex;flex-wrap:wrap;gap:10px}
+  .mica-tag{background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:12px 16px;border-radius:24px;font-size:15px;cursor:pointer;font-family:var(--mono)}
+  .mica-tag.on{background:var(--accent);color:#04110f;border-color:var(--accent);font-weight:600}
+  nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--panel);border-top:1px solid var(--line);display:flex;padding:8px 8px env(safe-area-inset-bottom,8px)}
+  nav.tabs button{flex:1;background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:12px;padding:10px 4px;cursor:pointer;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  nav.tabs button .ic{font-size:22px;line-height:1}
+  nav.tabs button.active{color:var(--accent);background:var(--panel2)}
+  .actionbar{position:fixed;bottom:74px;left:0;right:0;z-index:35;padding:12px 18px;background:linear-gradient(transparent,rgba(12,16,21,.9) 30%);pointer-events:none}
+  .actionbar .inner{max-width:720px;margin:0 auto;pointer-events:auto}
+  .view{display:none}.view.show{display:block}
+  .back{font-family:var(--mono);color:var(--accent);font-size:15px;background:none;border:none;cursor:pointer;padding:6px 0;margin-bottom:8px}
+  .empty{color:var(--dim);font-family:var(--mono);text-align:center;padding:40px 0;font-size:14px}
+  .step-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:10px;font-weight:600}
+  #toast{position:fixed;bottom:150px;left:50%;transform:translateX(-50%);background:var(--accent);color:#04110f;padding:14px 24px;border-radius:30px;font-weight:600;font-family:var(--mono);opacity:0;transition:.25s;z-index:100;pointer-events:none}
+  #toast.show{opacity:1}
+  .hist-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:10px}
+  .hist-card .top{display:flex;justify-content:space-between;align-items:baseline}
+  .hist-card .nm{font-size:17px;font-weight:600}
+  .hist-card .dt{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .hist-card .meta{font-family:var(--mono);font-size:13px;color:var(--dim);margin-top:6px}
+  .chip{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-family:var(--mono);font-size:11px;color:var(--dim);margin:4px 4px 0 0}
 </style>
 </head>
 <body>
@@ -78,179 +85,321 @@
 <div id="login">
   <div class="box">
     <h1>Soap<b>Dock</b></h1>
-    <div class="sub">the bench</div>
-    <input id="email" type="email" placeholder="email" autocomplete="username" autocapitalize="none">
+    <div class="sub">black bow market · make soap</div>
+    <input id="email" type="email" placeholder="email" autocapitalize="off" autocomplete="username">
     <input id="pass" type="password" placeholder="password" autocomplete="current-password">
-    <button id="loginBtn">Sign in</button>
-    <div class="err" id="loginErr"></div>
+    <button class="bigbtn" id="loginBtn">Sign in</button>
+    <div id="loginErr"></div>
   </div>
 </div>
 
 <div id="app">
-  <div class="top">
-    <div class="brand">Soap<b>Dock</b></div>
-    <div class="who"><span class="sync" id="syncState"></span> <a id="logout">log out</a></div>
-  </div>
+  <header>
+    <div class="logo">Soap<b>Dock</b></div>
+    <div class="who"><span id="whoEmail"></span> · <span id="logout" style="color:var(--accent);cursor:pointer">log out</span></div>
+  </header>
 
-  <!-- HOME -->
-  <div class="screen on" id="s-home">
-    <button class="big-btn" id="goLog">Log a batch I made</button>
-    <button class="big-btn alt" id="goNew">+ New recipe</button>
-    <h2>Recent</h2>
-    <div id="recentList"></div>
-  </div>
+  <div class="view show" id="v-log">
+    <div class="wrap">
+      <div id="logStep1">
+        <h2 class="sec">Pick a recipe to make</h2>
+        <div id="recipeCards"></div>
+        <div class="empty" id="recEmpty" style="display:none">No recipes yet. Add one on the desktop app.</div>
+      </div>
 
-  <!-- PICK RECIPE -->
-  <div class="screen" id="s-pick">
-    <a class="crumb" onclick="go('home')">‹ back</a>
-    <h2>Which soap did you make?</h2>
-    <div id="pickList"></div>
-  </div>
+      <div id="logStep2" style="display:none">
+        <button class="back" id="logBack">‹ pick a different recipe</button>
+        <div class="card">
+          <div class="step-label">Making</div>
+          <div style="font-size:22px;font-weight:700" id="sheetName"></div>
+          <div class="field" style="margin-top:14px"><label>Mold</label><select id="sheetMold"></select></div>
+          <div id="sheetReadout"></div>
+        </div>
 
-  <!-- LOG BATCH -->
-  <div class="screen" id="s-log">
-    <a class="crumb" onclick="go('pick')">‹ back</a>
-    <div id="logRecipeName" style="font-size:24px;font-weight:700;margin-bottom:6px"></div>
-    <div id="logRecipeMeta" class="sync" style="margin-bottom:20px"></div>
-    <div class="field">
-      <label>How many bars did this batch make?</label>
-      <div class="stepper">
-        <button onclick="bump(-1)">−</button>
-        <input id="barsMade" type="number" inputmode="numeric" value="10">
-        <button onclick="bump(1)">+</button>
+        <div class="card">
+          <div class="step-label">This batch's additions</div>
+          <div class="field"><label>Fragrance</label>
+            <div class="fragrow"><select id="bFrag"></select><input id="bFragOz" type="number" inputmode="decimal" step="0.01" placeholder="oz"></div>
+          </div>
+          <div class="field"><label>Essential oil</label>
+            <div class="fragrow"><select id="bEO"></select><input id="bEOOz" type="number" inputmode="decimal" step="0.01" placeholder="oz"></div>
+          </div>
+          <div class="field"><label>Micas used (tap)</label><div class="micas" id="bMicas"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="step-label">Craft notes</div>
+          <div class="row2">
+            <div class="field"><label>Topping</label><input id="bTopping" placeholder="oats, petals…"></div>
+            <div class="field"><label>Appearance</label><input id="bAppearance" placeholder="swirl, color…"></div>
+          </div>
+          <div class="field"><label>Scent — top</label><input id="bScentTop"></div>
+          <div class="row2">
+            <div class="field"><label>Scent — middle</label><input id="bScentMid"></div>
+            <div class="field"><label>Scent — base</label><input id="bScentBase"></div>
+          </div>
+          <div class="field"><label>Notes</label><textarea id="bNotes" placeholder="anything about this batch…"></textarea></div>
+        </div>
+
+        <div class="card">
+          <div class="step-label">Results</div>
+          <div class="row2">
+            <div class="field"><label>Date made</label><input id="bDate" type="date"></div>
+            <div class="field"><label>Bars made</label><input id="bBars" type="number" inputmode="numeric"></div>
+          </div>
+          <div class="field"><label>Earliest ready date</label><input id="bReady" type="date"></div>
+        </div>
+        <div style="height:70px"></div>
       </div>
     </div>
-    <div class="field">
-      <label>Date made</label>
-      <input id="madeOn" type="date">
-    </div>
-    <button class="big-btn good" id="saveBatch">Save batch</button>
+    <div class="actionbar" id="saveBar" style="display:none"><div class="inner">
+      <button class="bigbtn" id="bSave">Log this batch ✓</button>
+    </div></div>
   </div>
 
-  <!-- NEW RECIPE -->
-  <div class="screen" id="s-new">
-    <a class="crumb" onclick="go('home')">‹ back</a>
-    <h2>New recipe</h2>
-    <div class="field"><label>Recipe name</label><input id="nName" placeholder="e.g. Honey Almond"></div>
-    <div class="field"><label>Bars this recipe makes</label><input id="nBars" type="number" inputmode="numeric" value="10"></div>
-    <label style="display:block;font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:10px">Ingredients (optional — Troy can add costs later)</label>
-    <div id="nIngs"></div>
-    <button class="addrow" id="nAdd">+ add ingredient</button>
-    <button class="big-btn" id="saveRecipe">Save recipe</button>
-  </div>
-
-  <!-- DONE -->
-  <div class="screen" id="s-done">
-    <div class="done">
-      <div class="check">✓</div>
-      <div class="msg" id="doneMsg">Saved!</div>
-      <div class="sub">Troy will see it on his side.</div>
-      <button class="big-btn" style="margin-top:30px" onclick="go('home')">Done</button>
+  <div class="view" id="v-hist">
+    <div class="wrap">
+      <h2 class="sec">Recent batches</h2>
+      <div id="histList"></div>
+      <div class="empty" id="histEmpty" style="display:none">No batches logged yet.</div>
     </div>
   </div>
+
+  <div class="view" id="v-recipes">
+    <div class="wrap">
+      <h2 class="sec">Recipes</h2>
+      <div id="recipeList"></div>
+      <div class="empty" id="recipeListEmpty" style="display:none">No recipes yet.</div>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button data-v="log" class="active"><span class="ic">🧼</span>Make</button>
+    <button data-v="hist"><span class="ic">📋</span>History</button>
+    <button data-v="recipes"><span class="ic">📖</span>Recipes</button>
+  </nav>
 </div>
 
-<div class="toast" id="toast"></div>
+<div id="toast"></div>
 
 <script>
-// ============================================================
-//  SoapDock config  —  same Supabase project as the desktop app
-// ============================================================
 const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cmVvZWlibmZmcXF1cHF5bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDA3NzEsImV4cCI6MjA5NjYxNjc3MX0.U6NBONS7pWbw5v9cMJf2-K9u-ToS97FP7jGilg2682g";
-// ============================================================
-
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-let REC=[], BAT=[], ING=[], chosen=null, userEmail='';
-const $=s=>document.querySelector(s);
-const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
 
-async function init(){
-  const {data:{session}}=await sb.auth.getSession();
-  if(session) start(session); else $('#login').style.display='flex';
+let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[];
+let chosenRec=null, micaSel=[];
+const $=s=>document.querySelector(s);
+const money=n=>'$'+(Number(n)||0).toFixed(2);
+const CAT_COLOR={oil:'var(--accent)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',fragrance:'var(--warn)',additive:'var(--good)',other:'var(--dim)'};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1900);}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function num(v,d){const n=parseFloat(v);return isNaN(n)?(d||0):n;}
+
+const G={oz:28.3495,lb:453.592,g:1,kg:1000}, ML={fl_oz:29.5735,ml:1,l:1000,gallon:3785.41}, OIL_D=0.91;
+function pkgToRecipeUnits(sz,pu,ru){sz=num(sz,0);const pW=pu in G,pV=pu in ML,rW=ru in G,rV=ru in ML;
+  if(ru==='each'||pu==='each')return sz;let g=null,ml=null;if(pW)g=sz*G[pu];if(pV)ml=sz*ML[pu];
+  if(rW){if(g==null&&ml!=null)g=ml*OIL_D;return g/G[ru];}if(rV){if(ml==null&&g!=null)ml=g/OIL_D;return ml/ML[ru];}return sz;}
+function ingById(id){return ING.find(x=>x.id===id);}
+function ingByName(n){return ING.find(x=>x.name===n);}
+function purchaseCostPerUnit(p,ing){const u=pkgToRecipeUnits(p.pkg_size,p.pkg_unit,ing.unit||'g');return u?(num(p.price_paid)/u):0;}
+function ingCosting(ing){const ps=PUR.filter(p=>p.ingredient_id===ing.id).sort((a,b)=>(b.bought_on||'').localeCompare(a.bought_on||''));
+  if(!ps.length)return{buffered:0};const pu=ps.map(p=>purchaseCostPerUnit(p,ing));
+  const last5=pu.slice(0,5);const avg=last5.reduce((a,b)=>a+b,0)/last5.length;const buf=num(ing.buffer_pct)/100;
+  return{buffered:avg*(1+buf)};}
+function costPerG(ing){ if(!ing) return 0; return ingCosting(ing).buffered; }
+
+function computeFormula(recipe, mold, extraLines){
+  const base = mold ? num(mold.total_oil_g,1000) : 1000;
+  const lines = (recipe.ingredients||[]).concat(extraLines||[])
+    .map(l=>({mode:l.mode||'pct',pct:num(l.pct,0),amt:num(l.amt,0),ing:ingById(l.ingredient_id)})).filter(l=>l.ing);
+  let rows=[],totalCost=0,oilPctSum=0,naohRaw=0,warnings=[];
+  const oilLines=lines.filter(l=>l.ing.category==='oil'&&l.mode==='pct');
+  const other=lines.filter(l=>!(l.ing.category==='oil'&&l.mode==='pct'));
+  oilPctSum=oilLines.reduce((s,l)=>s+l.pct,0);
+  if(oilLines.length && Math.abs(oilPctSum-100)>0.1) warnings.push('Oils total '+(Math.round(oilPctSum*10)/10)+'% — should be 100%');
+  oilLines.forEach(l=>{const g=l.pct/100*base;naohRaw+=g*num(l.ing.sap_naoh,0);const c=g*costPerG(l.ing);totalCost+=c;
+    rows.push({name:l.ing.name,cat:'oil',mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g',cost:c});});
+  const sf=num(recipe.superfat,5);
+  const lyeType=recipe.lye_type==='KOH'?'KOH':'NaOH';
+  let lyeG=naohRaw*(1-sf/100); if(lyeType==='KOH') lyeG=lyeG*1.4025/0.90;
+  totalCost += lyeG*costPerG(ingByName(lyeType==='KOH'?'Potassium Hydroxide (KOH)':'Sodium Hydroxide (NaOH)'));
+  let waterG;const method=recipe.water_method||'conc';
+  if(method==='conc'){const conc=num(recipe.lye_conc,33)||33;const disc=num(recipe.water_disc,0);waterG=lyeG*((100-conc)/conc)*(1-disc/100);}
+  else{waterG=num(recipe.water_pct,33)/100*base*(1-num(recipe.water_disc,0)/100);}
+  totalCost += waterG*costPerG(ingByName('Distilled Water'));
+  other.forEach(l=>{
+    if(l.mode==='mark'){rows.push({name:l.ing.name,cat:l.ing.category,mode:'mark',disp:'✓',g:0,cost:0});return;}
+    if(l.mode==='tsp'||l.mode==='tbsp'){rows.push({name:l.ing.name,cat:l.ing.category,mode:l.mode,disp:l.amt+' '+(l.mode==='tsp'?'tsp':'Tbsp'),g:0,cost:0});return;}
+    const g=l.pct/100*base;const c=g*costPerG(l.ing);totalCost+=c;
+    rows.push({name:l.ing.name,cat:l.ing.category,mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g',cost:c});
+  });
+  const conc=(lyeG+waterG)>0?lyeG/(lyeG+waterG)*100:0;
+  const bars=mold?num(mold.bars,10):10;
+  return {base,rows,lyeG,lyeType,waterG,conc,sf,totalCost,bars,costPerBar:bars>0?totalCost/bars:0,oilPctSum,warnings,
+    oilLines:oilLines.map(l=>({ingredient_id:l.ing.id,name:l.ing.name,g:l.pct/100*base}))};
 }
-$('#loginBtn').onclick=async()=>{
-  const email=$('#email').value.trim(),password=$('#pass').value; $('#loginErr').textContent='';
-  const {data,error}=await sb.auth.signInWithPassword({email,password});
-  if(error){$('#loginErr').textContent=error.message;return;}
-  start(data.session);
-};
+
+async function init(){const{data:{session}}=await sb.auth.getSession();if(session)showApp(session);else $('#login').style.display='flex';}
+$('#loginBtn').onclick=async()=>{const email=$('#email').value.trim(),password=$('#pass').value;$('#loginErr').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){$('#loginErr').textContent=error.message;return;}showApp(data.session);};
 $('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
 $('#logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
+function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;loadAll();}
 
-function start(session){
-  $('#login').style.display='none'; $('#app').style.display='block';
-  userEmail=session.user.email; $('#madeOn').value=new Date().toISOString().slice(0,10);
-  load(); subscribe();
-}
-async function load(){
-  const [r,b,i]=await Promise.all([
+async function loadAll(){
+  const [i,r,b,p,m,a]=await Promise.all([
+    sb.from('ingredients').select('*').order('name'),
     sb.from('recipes').select('*').order('name'),
-    sb.from('batches').select('*').order('made_on',{ascending:false}).limit(8),
-    sb.from('ingredients').select('*').order('name')
+    sb.from('batches').select('*').order('made_on',{ascending:false}),
+    sb.from('purchases').select('*').order('bought_on',{ascending:false}),
+    sb.from('molds').select('*').order('total_oil_g',{ascending:false}),
+    sb.from('addins').select('*').order('name')
   ]);
-  REC=r.data||[]; BAT=b.data||[]; ING=i.data||[];
-  renderRecent(); renderPick();
-}
-function subscribe(){
-  sb.channel('bench').on('postgres_changes',{event:'*',schema:'public'},()=>load())
-    .subscribe(st=>{const e=$('#syncState'); if(st==='SUBSCRIBED'){e.textContent='live';e.classList.add('live');}else{e.textContent='offline';e.classList.remove('live');}});
+  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];
+  renderRecipeCards();renderHist();renderRecipeList();
 }
 
-function renderRecent(){
-  $('#recentList').innerHTML = BAT.length? BAT.map(b=>`
-    <div class="recipe-card"><div><div class="nm">${esc(b.recipe_name)}</div>
-    <div class="meta">${b.made_on} · ${b.bars_made} bars</div></div></div>`).join('')
-    : '<div class="sync" style="padding:10px 2px">No batches yet — tap “Log a batch”.</div>';
+document.querySelectorAll('nav.tabs button').forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));
+  $('#v-'+btn.dataset.v).classList.add('show');
+  window.scrollTo(0,0);
+});
+
+function renderRecipeCards(){
+  $('#recEmpty').style.display=REC.length?'none':'block';
+  $('#recipeCards').innerHTML=REC.map(r=>{
+    const m=MOLD.find(x=>x.id===r.default_mold_id)||MOLD[0];
+    const oils=(r.ingredients||[]).filter(l=>{const i=ingById(l.ingredient_id);return i&&i.category==='oil';}).length;
+    return `<div class="pickcard" onclick="pickRecipe('${r.id}')">
+      <div><div class="nm">${esc(r.name)}</div><div class="meta">${oils} oils · ${m?m.bars+' bars':'—'} · ${r.superfat||5}% SF</div></div>
+      <div class="arr">›</div></div>`;
+  }).join('');
 }
-function renderPick(){
-  $('#pickList').innerHTML = REC.length? REC.map(r=>`
-    <button class="recipe-card" onclick="pick('${r.id}')"><div><div class="nm">${esc(r.name)}</div>
-    <div class="meta">makes ${r.bars_per_batch} bars</div></div><div class="arrow">›</div></button>`).join('')
-    : '<div class="sync" style="padding:10px 2px">No recipes yet — tap back, then “New recipe”.</div>';
+
+window.pickRecipe=id=>{
+  chosenRec=REC.find(x=>x.id===id);if(!chosenRec)return;
+  micaSel=[];
+  $('#logStep1').style.display='none';
+  $('#logStep2').style.display='block';
+  $('#saveBar').style.display='block';
+  $('#sheetName').textContent=chosenRec.name;
+  $('#sheetMold').innerHTML=MOLD.map(m=>`<option value="${m.id}" ${m.id===chosenRec.default_mold_id?'selected':''}>${esc(m.name)} (${m.total_oil_g}g · ${m.bars} bars)</option>`).join('');
+  fillAddins();
+  $('#bDate').value=new Date().toISOString().slice(0,10);
+  ['bFragOz','bEOOz','bTopping','bAppearance','bScentTop','bScentMid','bScentBase','bNotes','bReady','bBars'].forEach(i=>$('#'+i).value='');
+  $('#bFrag').value='';$('#bEO').value='';
+  refreshSheet();
+  window.scrollTo(0,0);
+};
+$('#logBack').onclick=()=>{$('#logStep2').style.display='none';$('#saveBar').style.display='none';$('#logStep1').style.display='block';chosenRec=null;};
+
+function fillAddins(){
+  const frags=ADDIN.filter(a=>a.type==='fragrance'),eos=ADDIN.filter(a=>a.type==='eo'),micas=ADDIN.filter(a=>a.type==='mica');
+  $('#bFrag').innerHTML='<option value="">— none —</option>'+frags.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  $('#bEO').innerHTML='<option value="">— none —</option>'+eos.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  $('#bMicas').innerHTML=micas.length?micas.map(a=>`<button type="button" class="mica-tag" data-id="${a.id}" onclick="toggleMica('${a.id}',this)">${esc(a.name)}</button>`).join(''):'<span class="dim mono" style="font-size:13px">No micas in library yet.</span>';
+}
+window.toggleMica=(id,btn)=>{const i=micaSel.indexOf(id);if(i>=0){micaSel.splice(i,1);btn.classList.remove('on');}else{micaSel.push(id);btn.classList.add('on');}refreshSheet();};
+
+$('#bFrag').addEventListener('change',()=>{const a=ADDIN.find(x=>x.id===$('#bFrag').value);
+  if(a){if(a.note_top)$('#bScentTop').value=a.note_top;if(a.note_mid)$('#bScentMid').value=a.note_mid;if(a.note_base)$('#bScentBase').value=a.note_base;}refreshSheet();});
+['bFragOz','bEOOz'].forEach(id=>$('#'+id).addEventListener('input',refreshSheet));
+$('#bEO').addEventListener('change',refreshSheet);
+$('#sheetMold').addEventListener('change',()=>{const m=MOLD.find(x=>x.id===$('#sheetMold').value);if(m)$('#bBars').value=m.bars;refreshSheet();});
+
+function addinCost(){
+  let cost=0,list=[];
+  const frag=ADDIN.find(a=>a.id===$('#bFrag').value);if(frag){const oz=num($('#bFragOz').value);const c=oz*num(frag.cost);cost+=c;list.push({addin_id:frag.id,type:'fragrance',name:frag.name,oz,cost:c});}
+  const eo=ADDIN.find(a=>a.id===$('#bEO').value);if(eo){const oz=num($('#bEOOz').value);const c=oz*num(eo.cost);cost+=c;list.push({addin_id:eo.id,type:'eo',name:eo.name,oz,cost:c});}
+  micaSel.forEach(id=>{const m=ADDIN.find(a=>a.id===id);if(m){cost+=num(m.cost);list.push({addin_id:m.id,type:'mica',name:m.name,cost:num(m.cost)});}});
+  return {cost,list};
 }
 
-window.go=s=>{ document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on')); $('#s-'+s).classList.add('on'); window.scrollTo(0,0); };
-$('#goLog').onclick=()=>{ if(!REC.length){toast('Add a recipe first');go('new');return;} go('pick'); };
-$('#goNew').onclick=()=>{ $('#nIngs').innerHTML=''; $('#nName').value=''; $('#nBars').value='10'; go('new'); };
+function refreshSheet(){
+  const m=MOLD.find(x=>x.id===$('#sheetMold').value)||MOLD[0];
+  if(!chosenRec||!m){$('#sheetReadout').innerHTML='';return;}
+  const f=computeFormula(chosenRec,m,[]);
+  const ad=addinCost();
+  const grand=f.totalCost+ad.cost;
+  if(!$('#bBars').value)$('#bBars').value=m.bars;
+  const rows=f.rows.map(x=>`<tr><td><span class="dot" style="background:${CAT_COLOR[x.cat]||'var(--dim)'}"></span>${esc(x.name)}</td><td class="num dim">${x.mode==='pct'&&x.pct?x.pct+'%':''}</td><td class="num">${x.disp}</td></tr>`).join('');
+  const adRows=ad.list.length?ad.list.map(a=>`<tr><td><span class="dot" style="background:var(--warn)"></span>${esc(a.name)} <span class="dim">${a.type==='mica'?'(¼ tsp)':'('+a.oz+' oz)'}</span></td><td></td><td class="num dim">${money(a.cost)}</td></tr>`).join(''):'';
+  $('#sheetReadout').innerHTML=`
+    <div class="ro-head" style="margin-top:16px">
+      <span><span class="k">Lye (${f.lyeType})</span><b>${f.lyeG.toFixed(1)} g</b></span>
+      <span><span class="k">Water</span><b>${f.waterG.toFixed(1)} g</b></span>
+      <span><span class="k">Cost / bar</span><b>${money(grand/(f.bars||1))}</b></span>
+    </div>
+    <table><thead><tr><th>Ingredient</th><th class="num">%</th><th class="num">Weigh</th></tr></thead>
+    <tbody>${rows}${adRows}</tbody></table>
+    ${f.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')}`;
+}
 
-window.pick=id=>{ chosen=REC.find(r=>r.id===id); if(!chosen)return;
-  $('#logRecipeName').textContent=chosen.name;
-  $('#logRecipeMeta').textContent='usually makes '+chosen.bars_per_batch+' bars';
-  $('#barsMade').value=chosen.bars_per_batch;
-  $('#madeOn').value=new Date().toISOString().slice(0,10);
-  go('log'); };
-window.bump=d=>{ const el=$('#barsMade'); el.value=Math.max(0,(parseInt(el.value)||0)+d); };
-
-$('#saveBatch').onclick=async()=>{
-  if(!chosen)return;
-  const rec={ recipe_id:chosen.id, recipe_name:chosen.name,
-    bars_made:parseInt($('#barsMade').value)||0, made_on:$('#madeOn').value,
-    ingredients_used:chosen.ingredients||[], logged_by:userEmail };
+$('#bSave').onclick=async()=>{
+  const m=MOLD.find(x=>x.id===$('#sheetMold').value)||MOLD[0];
+  if(!chosenRec||!m){toast('Pick a recipe');return;}
+  const f=computeFormula(chosenRec,m,[]);
+  const ad=addinCost();
+  const grand=f.totalCost+ad.cost;
+  const bars=num($('#bBars').value)||m.bars;
+  const lyeIng=ingByName(f.lyeType==='KOH'?'Potassium Hydroxide (KOH)':'Sodium Hydroxide (NaOH)');
+  const waterIng=ingByName('Distilled Water');
+  const frag=ADDIN.find(a=>a.id===$('#bFrag').value);
+  const computed={oils:f.oilLines,lye_g:f.lyeG,lye_ing:lyeIng?lyeIng.id:null,water_g:f.waterG,water_ing:waterIng?waterIng.id:null,
+    oils_lye_cost:f.totalCost,addin_cost:ad.cost,total_cost:grand,cost_per_bar:bars>0?grand/bars:0};
+  const rec={
+    recipe_id:chosenRec.id, recipe_name:chosenRec.name, mold_id:m.id, bars_made:bars, made_on:$('#bDate').value,
+    snapshot:{name:chosenRec.name,superfat:chosenRec.superfat,lye_type:chosenRec.lye_type,water_method:chosenRec.water_method,lye_conc:chosenRec.lye_conc,water_disc:chosenRec.water_disc,water_pct:chosenRec.water_pct,ingredients:chosenRec.ingredients},
+    overrides:[], computed, addins:ad.list,
+    fragrance_name:frag?frag.name:'', fragrance_manuf:frag?(frag.supplier||''):'',
+    topping:$('#bTopping').value, appearance:$('#bAppearance').value,
+    scent_top:$('#bScentTop').value, scent_mid:$('#bScentMid').value, scent_base:$('#bScentBase').value,
+    earliest_ready:$('#bReady').value||null, superfat:f.sf, notes_craft:$('#bNotes').value, logged_by:$('#whoEmail').textContent
+  };
+  $('#bSave').textContent='Saving…';$('#bSave').disabled=true;
   const {error}=await sb.from('batches').insert(rec);
+  $('#bSave').textContent='Log this batch ✓';$('#bSave').disabled=false;
   if(error){toast('Error: '+error.message);return;}
-  $('#doneMsg').textContent=chosen.name+' logged!'; go('done'); load();
+  toast('Batch logged! 🧼');
+  $('#logBack').click();
+  await loadAll();
+  document.querySelector('nav.tabs button[data-v="hist"]').click();
 };
 
-// new recipe ingredient lines
-function ingOpts(sel){ return '<option value="">— pick —</option>'+ING.map(i=>`<option value="${i.id}" ${i.id===sel?'selected':''}>${esc(i.name)}</option>`).join(''); }
-function addLine(id='',qty=''){
-  const d=document.createElement('div'); d.className='ingline';
-  d.innerHTML=`<select>${ingOpts(id)}</select><input type="number" inputmode="decimal" placeholder="qty" value="${qty}"><button class="x">×</button>`;
-  d.querySelector('.x').onclick=()=>d.remove(); $('#nIngs').appendChild(d);
+function renderHist(){
+  $('#histEmpty').style.display=BAT.length?'none':'block';
+  $('#histList').innerHTML=BAT.slice(0,40).map(b=>{
+    const m=MOLD.find(x=>x.id===b.mold_id);
+    const cb=b.computed?num(b.computed.cost_per_bar):0;
+    const chips=[];
+    if(b.fragrance_name)chips.push(esc(b.fragrance_name));
+    (b.addins||[]).filter(a=>a.type==='mica').forEach(a=>chips.push(esc(a.name)));
+    return `<div class="hist-card">
+      <div class="top"><span class="nm">${esc(b.recipe_name)}</span><span class="dt">${b.made_on||''}</span></div>
+      <div class="meta">${m?esc(m.name):'—'} · ${b.bars_made||'?'} bars${cb?' · '+money(cb)+'/bar':''}</div>
+      ${chips.length?'<div>'+chips.map(c=>`<span class="chip">${c}</span>`).join('')+'</div>':''}
+      ${b.notes_craft?`<div class="meta" style="margin-top:8px;color:var(--txt)">${esc(b.notes_craft)}</div>`:''}
+    </div>`;
+  }).join('');
 }
-$('#nAdd').onclick=()=>addLine();
-$('#saveRecipe').onclick=async()=>{
-  const name=$('#nName').value.trim(); if(!name){toast('Name the recipe');return;}
-  const lines=[...$('#nIngs').querySelectorAll('.ingline')].map(d=>({
-    ingredient_id:d.querySelector('select').value, qty:parseFloat(d.querySelector('input').value)||0
-  })).filter(l=>l.ingredient_id&&l.qty>0);
-  const rec={ name, bars_per_batch:parseInt($('#nBars').value)||1, ingredients:lines, source:'soapdock' };
-  const {error}=await sb.from('recipes').insert(rec);
-  if(error){toast('Error: '+error.message);return;}
-  $('#doneMsg').textContent=name+' added!'; go('done'); load();
-};
+
+function renderRecipeList(){
+  $('#recipeListEmpty').style.display=REC.length?'none':'block';
+  $('#recipeList').innerHTML=REC.map(r=>{
+    const m=MOLD.find(x=>x.id===r.default_mold_id)||MOLD[0];
+    const f=computeFormula(r,m,[]);
+    const oils=f.rows.filter(x=>x.cat==='oil').map(x=>`<tr><td><span class="dot" style="background:var(--accent)"></span>${esc(x.name)}</td><td class="num dim">${x.pct}%</td><td class="num">${x.disp}</td></tr>`).join('');
+    return `<div class="card">
+      <div style="font-size:19px;font-weight:600;margin-bottom:4px">${esc(r.name)}</div>
+      <div class="meta mono dim" style="font-size:12px;margin-bottom:12px">${m?m.bars+' bars · '+m.total_oil_g+'g oils':''} · ${r.superfat||5}% SF · ${f.lyeType}</div>
+      <div class="ro-head"><span><span class="k">Lye</span><b>${f.lyeG.toFixed(1)}g</b></span><span><span class="k">Water</span><b>${f.waterG.toFixed(1)}g</b></span></div>
+      <table><thead><tr><th>Oil</th><th class="num">%</th><th class="num">Grams</th></tr></thead><tbody>${oils}</tbody></table>
+    </div>`;
+  }).join('');
+}
 
 init();
 </script>
