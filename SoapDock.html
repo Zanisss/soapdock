@@ -244,6 +244,9 @@
           </div>
           <div class="grid3" id="rePctFields" style="display:none">
             <div class="field"><label>Water % of oils</label><input id="reWaterPct" type="number" value="33"></div>
+            <div class="field"><label>Water discount %</label><input id="reWaterDiscPct" type="number" value="0">
+              <div class="hint">Reduces water (e.g. 11% for tighter molds).</div></div>
+            <div></div>
           </div>
           <h3>Oils &amp; ingredients</h3>
           <p class="dim mono" style="font-size:11px;margin-bottom:8px">Oils as % of total oil weight (should sum to 100). Additives: % / tsp / Tbsp / ✓.</p>
@@ -398,7 +401,7 @@ function computeFormula(recipe, mold, extraLines){
   totalCost += lyeG*costPerG(ingByName(lyeType==='KOH'?'Potassium Hydroxide (KOH)':'Sodium Hydroxide (NaOH)'));
   let waterG;const method=recipe.water_method||'conc';
   if(method==='conc'){const conc=num(recipe.lye_conc,33)||33;const disc=num(recipe.water_disc,0);waterG=lyeG*((100-conc)/conc)*(1-disc/100);}
-  else{waterG=num(recipe.water_pct,33)/100*base;}
+  else{waterG=num(recipe.water_pct,33)/100*base*(1-num(recipe.water_disc,0)/100);}
   totalCost += waterG*costPerG(ingByName('Distilled Water'));
   // additives
   other.forEach(l=>{
@@ -596,7 +599,7 @@ function openRecipeEditor(id){
   $('#reName').value=r?r.name:'';$('#reFrom').value=r?(r.recipe_from||''):'';
   $('#reSF').value=r?r.superfat:5;$('#reLyeType').value=r?r.lye_type:'NaOH';
   $('#reWaterMethod').value=r?r.water_method:'conc';$('#reLyeConc').value=r?r.lye_conc:33;
-  $('#reWaterDisc').value=r?r.water_disc:0;$('#reWaterPct').value=r?r.water_pct:33;
+  $('#reWaterDisc').value=r?r.water_disc:0;$('#reWaterDiscPct').value=r?r.water_disc:0;$('#reWaterPct').value=r?r.water_pct:33;
   fillMoldSelect($('#reMold'),r?r.default_mold_id:(MOLD[0]&&MOLD[0].id));
   toggleWaterFields();
   reLines=r&&r.ingredients?JSON.parse(JSON.stringify(r.ingredients)):[];
@@ -604,7 +607,7 @@ function openRecipeEditor(id){
 }
 function toggleWaterFields(){const c=$('#reWaterMethod').value==='conc';$('#reConcFields').style.display=c?'grid':'none';$('#rePctFields').style.display=c?'none':'grid';}
 $('#reWaterMethod').onchange=()=>{toggleWaterFields();refreshReReadout();};
-['reSF','reLyeType','reLyeConc','reWaterDisc','reWaterPct','reMold'].forEach(id=>$('#'+id).addEventListener('input',refreshReReadout));
+['reSF','reLyeType','reLyeConc','reWaterDisc','reWaterDiscPct','reWaterPct','reMold'].forEach(id=>$('#'+id).addEventListener('input',refreshReReadout));
 $('#reMold').addEventListener('change',refreshReReadout);
 function renderReLines(){$('#reLines').innerHTML='';reLines.forEach((l,i)=>addReLineRow(l,i));}
 function addReLineRow(line,idx){
@@ -622,8 +625,9 @@ function addReLineRow(line,idx){
   $('#reLines').appendChild(div);
 }
 $('#reAddLine').onclick=()=>{if(!ING.length){toast('Add ingredients first');return;}reLines.push({ingredient_id:ING[0].id,mode:'pct',pct:0,amt:0});renderReLines();};
+function activeWaterDisc(){return $('#reWaterMethod').value==='conc'?num($('#reWaterDisc').value,0):num($('#reWaterDiscPct').value,0);}
 function draftRecipe(){return{superfat:num($('#reSF').value,5),lye_type:$('#reLyeType').value,water_method:$('#reWaterMethod').value,
-  lye_conc:num($('#reLyeConc').value,33),water_disc:num($('#reWaterDisc').value,0),water_pct:num($('#reWaterPct').value,33),ingredients:reLines};}
+  lye_conc:num($('#reLyeConc').value,33),water_disc:activeWaterDisc(),water_pct:num($('#reWaterPct').value,33),ingredients:reLines};}
 function refreshReReadout(){const m=MOLD.find(x=>x.id===$('#reMold').value)||MOLD[0];
   if(!m||!reLines.length){$('#reReadout').innerHTML='<div class="empty">Add oils to see lye, water &amp; cost.</div>';return;}
   const f=computeFormula(draftRecipe(),m,[]);$('#reReadout').innerHTML=readoutHTML(f,draftRecipe(),m);}
@@ -631,7 +635,7 @@ $('#reSave').onclick=async()=>{
   const name=$('#reName').value.trim();if(!name){toast('Name required');return;}
   const rec={name,recipe_from:$('#reFrom').value,default_mold_id:$('#reMold').value||null,
     superfat:num($('#reSF').value,5),lye_type:$('#reLyeType').value,water_method:$('#reWaterMethod').value,
-    lye_conc:num($('#reLyeConc').value,33),water_disc:num($('#reWaterDisc').value,0),water_pct:num($('#reWaterPct').value,33),
+    lye_conc:num($('#reLyeConc').value,33),water_disc:activeWaterDisc(),water_pct:num($('#reWaterPct').value,33),
     ingredients:reLines,source:'soapdock',updated_at:new Date().toISOString()};
   let error;
   if(editRec){({error}=await sb.from('recipes').update(rec).eq('id',editRec));}
