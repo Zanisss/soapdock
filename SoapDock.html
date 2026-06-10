@@ -126,6 +126,7 @@
     <button data-v="recipes">Recipes</button>
     <button data-v="molds">Molds</button>
     <button data-v="ingredients">Ingredients</button>
+    <button data-v="addins">Add-ins</button>
     <button data-v="pricing">Pricing</button>
   </nav>
 
@@ -157,15 +158,18 @@
       <div id="mkReadout"></div>
       <div id="mkSheet" style="display:none">
         <div class="sheet-sec">
-          <h3>This batch — swaps &amp; variables</h3>
-          <p class="dim mono" style="font-size:11px;margin-bottom:10px">Oils &amp; lye come from the recipe. Change just what's different this run.</p>
+          <h3>This batch's additions</h3>
+          <p class="dim mono" style="font-size:11px;margin-bottom:10px">Oils &amp; lye come from the recipe. Pick the fragrance, essential oils &amp; micas for this run.</p>
           <div class="grid2">
-            <div class="field"><label>Fragrance name</label><input id="mkFragName" placeholder="Green Clover & Aloe"></div>
-            <div class="field"><label>Fragrance manufacturer</label><input id="mkFragManuf" placeholder="NG"></div>
+            <div class="field"><label>Fragrance</label>
+              <div style="display:flex;gap:8px"><select id="mkFrag" style="flex:2"></select><input id="mkFragOz" type="number" step="0.01" placeholder="oz" style="flex:1"></div></div>
+            <div class="field"><label>Essential oil</label>
+              <div style="display:flex;gap:8px"><select id="mkEO" style="flex:2"></select><input id="mkEOOz" type="number" step="0.01" placeholder="oz" style="flex:1"></div></div>
           </div>
-          <label style="display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px">Override / add ingredients for this batch</label>
+          <div class="field"><label>Micas used (tap to toggle)</label><div id="mkMicas" style="display:flex;flex-wrap:wrap;gap:8px"></div></div>
+          <label style="display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin:10px 0 8px">Other this-batch ingredients (optional)</label>
           <div id="mkOverrides"></div>
-          <button class="btn ghost sm" id="mkAddOverride" style="margin:4px 0 8px">+ add / swap ingredient</button>
+          <button class="btn ghost sm" id="mkAddOverride" style="margin:4px 0 8px">+ add ingredient</button>
         </div>
         <div class="sheet-sec">
           <h3>Craft notes</h3>
@@ -334,6 +338,28 @@
     </div>
   </div>
 
+  <!-- ADD-INS -->
+  <div class="view" id="v-addins">
+    <div class="row">
+      <div class="card" style="flex:1;min-width:300px">
+        <h2 id="adFormTitle">New add-in</h2>
+        <div class="field"><label>Type</label>
+          <select id="adType"><option value="fragrance">Fragrance</option><option value="eo">Essential Oil</option><option value="mica">Mica</option></select></div>
+        <div class="field"><label>Name</label><input id="adName" placeholder="e.g. Green Clover & Aloe"></div>
+        <div class="field"><label>Supplier</label><input id="adSupplier" placeholder="e.g. Nature's Garden"></div>
+        <div class="field"><label id="adCostLabel">Cost per oz ($)</label><input id="adCost" type="number" step="0.01" value="0">
+          <div class="hint" id="adCostHint">Fragrance/EO costed by oz used. Mica: cost per ¼ tsp use.</div></div>
+        <div class="field"><label id="adNotesLabel">Scent notes</label><input id="adNotes" placeholder="top / mid / base, or color"></div>
+        <div><button class="btn" id="adSave">Save add-in</button> <button class="btn ghost" id="adClear" style="display:none">Cancel</button></div>
+      </div>
+      <div class="card" style="flex:1.6;min-width:360px">
+        <h2>Add-in library <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="adTotalCount"></span></h2>
+        <div id="adGroups"></div>
+        <div class="empty" id="adEmpty">No add-ins yet.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRICING -->
   <div class="view" id="v-pricing">
     <div class="card">
@@ -355,7 +381,8 @@ const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cmVvZWlibmZmcXF1cHF5bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDA3NzEsImV4cCI6MjA5NjYxNjc3MX0.U6NBONS7pWbw5v9cMJf2-K9u-ToS97FP7jGilg2682g";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], openIng=null, editRec=null;
+let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[], openIng=null, editRec=null;
+let mkMicaSel=[];
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
 const money4=n=>'$'+(Number(n)||0).toFixed(4);
@@ -425,14 +452,15 @@ $('#logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
 function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;loadAll();subscribe();}
 
 async function loadAll(){
-  const [i,r,b,p,m]=await Promise.all([
+  const [i,r,b,p,m,a]=await Promise.all([
     sb.from('ingredients').select('*').order('name'),
     sb.from('recipes').select('*').order('name'),
     sb.from('batches').select('*').order('made_on',{ascending:false}),
     sb.from('purchases').select('*').order('bought_on',{ascending:false}),
-    sb.from('molds').select('*').order('total_oil_g',{ascending:false})
+    sb.from('molds').select('*').order('total_oil_g',{ascending:false}),
+    sb.from('addins').select('*').order('name')
   ]);
-  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];
+  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];
   renderAll();
 }
 function subscribe(){sb.channel('soapdock').on('postgres_changes',{event:'*',schema:'public'},()=>loadAll())
@@ -446,7 +474,41 @@ function ingConsumed(ing){let u=0;BAT.forEach(b=>{const c=b.computed;if(!c)retur
 function ingStock(ing){const purchased=ingPurchased(ing),consumed=ingConsumed(ing);return{purchased,consumed,onHand:purchased-consumed};}
 
 // ---- RENDER ALL ----
-function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPricing();if(openIng)renderIngDetail();}
+function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderAddins();renderPricing();if(openIng)renderIngDetail();}
+
+// ---- ADD-INS (fragrances / EOs / micas) ----
+const ADDIN_TYPES=[['fragrance','Fragrances'],['eo','Essential Oils'],['mica','Micas']];
+let editAddin=null;
+function adCostLabelFor(t){return t==='mica'?'Cost per ¼ tsp ($)':'Cost per oz ($)';}
+$('#adType').onchange=()=>{const t=$('#adType').value;$('#adCostLabel').textContent=adCostLabelFor(t);
+  $('#adNotesLabel').textContent=t==='mica'?'Color notes':'Scent notes';
+  $('#adCostHint').textContent=t==='mica'?'Costed as one ¼ tsp use per batch.':'Costed by oz used in the batch.';};
+function renderAddins(){
+  $('#adEmpty').style.display=ADDIN.length?'none':'block';
+  $('#adTotalCount').textContent=ADDIN.length?'· '+ADDIN.length+' total':'';
+  let html='';
+  ADDIN_TYPES.forEach(([t,label])=>{
+    const items=ADDIN.filter(a=>a.type===t);if(!items.length)return;
+    const unit=t==='mica'?'/¼tsp':'/oz';
+    const rows=items.map(a=>`<tr><td>${esc(a.name)}</td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(a.notes||'')}</td>
+      <td class="num"><button class="btn ghost sm" onclick="editAddinFn('${a.id}')">edit</button> <button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`).join('');
+    html+=`<div class="cat-group"><div class="cat-head open" onclick="toggleCat(this)"><span class="chev">▶</span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
+      <div class="cat-body open"><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  });
+  $('#adGroups').innerHTML=html;
+}
+$('#adSave').onclick=async()=>{
+  const rec={type:$('#adType').value,name:$('#adName').value.trim(),supplier:$('#adSupplier').value,cost:num($('#adCost').value),notes:$('#adNotes').value};
+  if(!rec.name){toast('Name required');return;}
+  let error;if(editAddin){({error}=await sb.from('addins').update(rec).eq('id',editAddin));}else{({error}=await sb.from('addins').insert(rec));}
+  if(error){toast('Error: '+error.message);return;}clearAddinForm();toast('Add-in saved');loadAll();
+};
+window.editAddinFn=id=>{const a=ADDIN.find(x=>x.id===id);if(!a)return;editAddin=id;$('#adType').value=a.type;$('#adType').onchange();
+  $('#adName').value=a.name;$('#adSupplier').value=a.supplier||'';$('#adCost').value=a.cost;$('#adNotes').value=a.notes||'';
+  $('#adFormTitle').textContent='Edit add-in';$('#adClear').style.display='inline-block';};
+window.delAddin=async id=>{if(!confirm('Delete this add-in?'))return;await sb.from('addins').delete().eq('id',id);toast('Deleted');loadAll();};
+$('#adClear').onclick=clearAddinForm;
+function clearAddinForm(){editAddin=null;$('#adName').value='';$('#adSupplier').value='';$('#adCost').value='0';$('#adNotes').value='';$('#adFormTitle').textContent='New add-in';$('#adClear').style.display='none';}
 
 function renderDash(){
   $('#s-batches').textContent=BAT.length;$('#s-recipes').textContent=REC.length;
@@ -464,16 +526,34 @@ function renderMake(){
   const curR=$('#mkRecipe').value;fillRecipeSelect($('#mkRecipe'));if(curR)$('#mkRecipe').value=curR;
   const curM=$('#mkMold').value;fillMoldSelect($('#mkMold'));if(curM)$('#mkMold').value=curM;
   if(!$('#mkDate').value)$('#mkDate').value=new Date().toISOString().slice(0,10);
+  fillAddinPickers();
   refreshMake();
 }
+function fillAddinPickers(){
+  const frags=ADDIN.filter(a=>a.type==='fragrance'),eos=ADDIN.filter(a=>a.type==='eo'),micas=ADDIN.filter(a=>a.type==='mica');
+  $('#mkFrag').innerHTML='<option value="">— none —</option>'+frags.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  $('#mkEO').innerHTML='<option value="">— none —</option>'+eos.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  $('#mkMicas').innerHTML=micas.length?micas.map(a=>`<button type="button" class="btn ghost sm mica-tag" data-id="${a.id}" onclick="toggleMica('${a.id}',this)">${esc(a.name)}</button>`).join(''):'<span class="dim mono" style="font-size:11px">No micas yet — add some in the Add-ins tab.</span>';
+  // restore selection highlight
+  mkMicaSel.forEach(id=>{const b=document.querySelector('.mica-tag[data-id="'+id+'"]');if(b){b.style.background='var(--accent)';b.style.color='#04110f';}});
+}
+window.toggleMica=(id,btn)=>{const i=mkMicaSel.indexOf(id);if(i>=0){mkMicaSel.splice(i,1);btn.style.background='';btn.style.color='';}else{mkMicaSel.push(id);btn.style.background='var(--accent)';btn.style.color='#04110f';}refreshMakeReadoutOnly();};
 let mkOverrideLines=[];
 $('#mkRecipe').onchange=()=>{const r=REC.find(x=>x.id===$('#mkRecipe').value);if(r&&r.default_mold_id){$('#mkMold').value=r.default_mold_id;}refreshMake();};
 $('#mkMold').onchange=refreshMake;
+['mkFrag','mkFragOz','mkEO','mkEOOz'].forEach(id=>$('#'+id).addEventListener('input',refreshMakeReadoutOnly));
+function batchAddinCost(){
+  let cost=0,list=[];
+  const frag=ADDIN.find(a=>a.id===$('#mkFrag').value);if(frag){const oz=num($('#mkFragOz').value);const c=oz*num(frag.cost);cost+=c;list.push({addin_id:frag.id,type:'fragrance',name:frag.name,oz,cost:c});}
+  const eo=ADDIN.find(a=>a.id===$('#mkEO').value);if(eo){const oz=num($('#mkEOOz').value);const c=oz*num(eo.cost);cost+=c;list.push({addin_id:eo.id,type:'eo',name:eo.name,oz,cost:c});}
+  mkMicaSel.forEach(id=>{const m=ADDIN.find(a=>a.id===id);if(m){cost+=num(m.cost);list.push({addin_id:m.id,type:'mica',name:m.name,cost:num(m.cost)});}});
+  return {cost,list};
+}
 function refreshMake(){
   const r=REC.find(x=>x.id===$('#mkRecipe').value);const m=MOLD.find(x=>x.id===$('#mkMold').value);
   if(!r||!m){$('#mkReadout').innerHTML='<div class="empty">Pick a recipe and mold.</div>';$('#mkSheet').style.display='none';return;}
   const f=computeFormula(r,m,mkOverrideLines);
-  $('#mkReadout').innerHTML=readoutHTML(f,r,m);
+  $('#mkReadout').innerHTML=readoutHTML(f,r,m,batchAddinCost());
   $('#mkSheet').style.display='block';
   if(!$('#mkBars').value)$('#mkBars').value=m.bars;
   renderOverrides();
@@ -496,11 +576,15 @@ function addOverrideRow(line,idx){
   $('#mkOverrides').appendChild(div);
 }
 function refreshMakeReadoutOnly(){const r=REC.find(x=>x.id===$('#mkRecipe').value);const m=MOLD.find(x=>x.id===$('#mkMold').value);
-  if(r&&m){const f=computeFormula(r,m,mkOverrideLines);$('#mkReadout').innerHTML=readoutHTML(f,r,m);}}
+  if(r&&m){const f=computeFormula(r,m,mkOverrideLines);$('#mkReadout').innerHTML=readoutHTML(f,r,m,batchAddinCost());}}
 $('#mkAddOverride').onclick=()=>{if(!ING.length){toast('Add ingredients first');return;}mkOverrideLines.push({ingredient_id:ING[0].id,mode:'pct',pct:0,amt:0});renderOverrides();};
 
-function readoutHTML(f,r,m){
+function readoutHTML(f,r,m,addin){
+  const addinCost=addin?addin.cost:0;
+  const grandTotal=f.totalCost+addinCost;
+  const bars=f.bars||1;
   const rowsHtml=f.rows.map(x=>`<tr><td><span class="catdot" style="background:${CAT_COLOR[x.cat]||'var(--dim)'}"></span>${esc(x.name)}</td><td class="num dim">${x.mode==='pct'&&x.pct?x.pct+'%':''}</td><td class="num">${x.disp}</td><td class="num dim">${x.cost?money(x.cost):''}</td></tr>`).join('');
+  const addinRows=addin&&addin.list.length?addin.list.map(a=>`<tr><td><span class="catdot" style="background:var(--warn)"></span>${esc(a.name)} <span class="dim" style="font-size:11px">(${a.type==='mica'?'¼ tsp':a.oz+' oz'})</span></td><td></td><td></td><td class="num dim">${money(a.cost)}</td></tr>`).join(''):'';
   return `<div class="readout">
     <div class="costline"><span class="k">Mold</span> <b>${esc(m.name)}</b> · ${m.total_oil_g} g oils · ${m.bars} bars</div>
     <div class="costline">
@@ -509,10 +593,12 @@ function readoutHTML(f,r,m){
       <span><span class="k">Conc</span> <b>${Math.round(f.conc)}%</b></span>
     </div>
     <div class="costline">
-      <span><span class="k">Batch cost</span> <b>${money(f.totalCost)}</b></span>
-      <span><span class="k">Cost / bar</span> <span class="use">${money(f.costPerBar)}</span></span>
+      <span><span class="k">Oils+lye cost</span> <b>${money(f.totalCost)}</b></span>
+      ${addinCost?`<span><span class="k">Add-ins</span> <b>${money(addinCost)}</b></span>`:''}
+      <span><span class="k">Batch total</span> <b>${money(grandTotal)}</b></span>
+      <span><span class="k">Cost / bar</span> <span class="use">${money(grandTotal/bars)}</span></span>
     </div>
-    <table style="margin-top:10px"><thead><tr><th>Ingredient</th><th class="num">%</th><th class="num">Amount</th><th class="num">Cost</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    <table style="margin-top:10px"><thead><tr><th>Ingredient</th><th class="num">%</th><th class="num">Amount</th><th class="num">Cost</th></tr></thead><tbody>${rowsHtml}${addinRows}</tbody></table>
     ${f.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')}
   </div>`;
 }
@@ -521,16 +607,20 @@ $('#mkSave').onclick=async()=>{
   const r=REC.find(x=>x.id===$('#mkRecipe').value);const m=MOLD.find(x=>x.id===$('#mkMold').value);
   if(!r||!m){toast('Pick recipe and mold');return;}
   const f=computeFormula(r,m,mkOverrideLines);
+  const addin=batchAddinCost();
+  const grandTotal=f.totalCost+addin.cost;
+  const bars=num($('#mkBars').value)||m.bars;
   const lyeIng=ingByName(f.lyeType==='KOH'?'Potassium Hydroxide (KOH)':'Sodium Hydroxide (NaOH)');
   const waterIng=ingByName('Distilled Water');
   const computed={oils:f.oilLines,lye_g:f.lyeG,lye_ing:lyeIng?lyeIng.id:null,water_g:f.waterG,water_ing:waterIng?waterIng.id:null,
-    total_cost:f.totalCost,cost_per_bar:f.costPerBar};
+    oils_lye_cost:f.totalCost,addin_cost:addin.cost,total_cost:grandTotal,cost_per_bar:bars>0?grandTotal/bars:0};
+  const frag=ADDIN.find(a=>a.id===$('#mkFrag').value);
   const rec={
     recipe_id:r.id, recipe_name:r.name, mold_id:m.id,
-    bars_made:num($('#mkBars').value)||m.bars, made_on:$('#mkDate').value,
+    bars_made:bars, made_on:$('#mkDate').value,
     snapshot:{name:r.name,superfat:r.superfat,lye_type:r.lye_type,water_method:r.water_method,lye_conc:r.lye_conc,water_disc:r.water_disc,water_pct:r.water_pct,ingredients:r.ingredients},
-    overrides:mkOverrideLines, computed,
-    fragrance_name:$('#mkFragName').value, fragrance_manuf:$('#mkFragManuf').value,
+    overrides:mkOverrideLines, computed, addins:addin.list,
+    fragrance_name:frag?frag.name:'', fragrance_manuf:frag?(frag.supplier||''):'',
     topping:$('#mkTopping').value, appearance:$('#mkAppearance').value,
     scent_top:$('#mkScentTop').value, scent_mid:$('#mkScentMid').value, scent_base:$('#mkScentBase').value,
     earliest_ready:$('#mkReady').value||null, ph_result:$('#mkPh').value, ph_date:$('#mkPhDate').value||null,
@@ -539,8 +629,8 @@ $('#mkSave').onclick=async()=>{
   const {error}=await sb.from('batches').insert(rec);
   if(error){toast('Error: '+error.message);return;}
   // reset
-  mkOverrideLines=[];['mkFragName','mkFragManuf','mkTopping','mkAppearance','mkScentTop','mkScentMid','mkScentBase','mkPh','mkNotes'].forEach(id=>$('#'+id).value='');
-  $('#mkBars').value='';toast('Batch logged!');loadAll();
+  mkOverrideLines=[];mkMicaSel=[];['mkTopping','mkAppearance','mkScentTop','mkScentMid','mkScentBase','mkPh','mkNotes','mkFragOz','mkEOOz'].forEach(id=>$('#'+id).value='');
+  $('#mkFrag').value='';$('#mkEO').value='';$('#mkBars').value='';toast('Batch logged!');loadAll();
 };
 
 // ---- BATCH HISTORY ----
@@ -565,6 +655,7 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
       <div style="flex:1;min-width:240px">
         <h3>This batch</h3>
         <p class="mono" style="font-size:12px"><span class="dim">Fragrance:</span> ${esc(b.fragrance_name||'—')} ${b.fragrance_manuf?'('+esc(b.fragrance_manuf)+')':''}</p>
+        ${(b.addins&&b.addins.length)?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Add-ins:</span> ${b.addins.map(a=>esc(a.name)+(a.type==='mica'?'':' '+a.oz+'oz')).join(', ')}</p>`:''}
         ${ov?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Swaps:</span></p><ul style="font-family:var(--mono);font-size:12px;margin-left:18px">${ov}</ul>`:''}
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Topping:</span> ${esc(b.topping||'—')}</p>
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Appearance:</span> ${esc(b.appearance||'—')}</p>
