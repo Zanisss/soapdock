@@ -78,6 +78,9 @@
   .tdot{width:13px;height:13px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;background-clip:padding-box}
   .tdot:hover{transform:scale(1.15)}
   .tdot.on{border-color:var(--txt)}
+  .swatch{width:26px;height:26px;border-radius:6px;object-fit:cover;border:1px solid var(--line);flex:0 0 auto}
+  .swatch.sm{width:16px;height:16px;border-radius:4px;vertical-align:-3px;margin-right:6px}
+  .mica-tag{display:inline-flex;align-items:center}
   .back{font-family:var(--mono);font-size:12px;color:var(--accent);cursor:pointer;margin-bottom:14px;display:inline-block}
   .lineitem{display:grid;grid-template-columns:1fr 70px 80px 30px;gap:8px;margin-bottom:8px;align-items:center}
   .lineitem select,.lineitem input{margin:0;padding:7px 8px}
@@ -356,6 +359,7 @@
           <select id="adType"><option value="fragrance">Fragrance</option><option value="eo">Essential Oil</option><option value="mica">Mica</option></select></div>
         <div class="field"><label>Name</label><input id="adName" placeholder="e.g. Green Clover & Aloe"></div>
         <div class="field"><label>Supplier</label><input id="adSupplier" placeholder="e.g. Nature's Garden"></div>
+        <div class="field"><label>Image URL <span class="dim" style="font-weight:400">(optional swatch)</span></label><input id="adImg" placeholder="https://…/swatch.jpg"></div>
         <div class="field"><label id="adCostLabel">Cost per oz ($)</label><input id="adCost" type="number" step="0.01" value="0">
           <div class="hint" id="adCostHint">Fragrance/EO costed by oz used. Mica: cost per ¼ tsp use.</div></div>
         <div id="adScentFields" class="grid3">
@@ -562,7 +566,8 @@ function renderAddins(){
     const items=ADDIN.filter(a=>a.type===t);if(!items.length)return;
     const unit=t==='mica'?'/¼tsp':'/oz';
     const rows=items.map(a=>{const noteStr=t==='mica'?(a.notes||''):[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ');
-      return `<tr><td>${esc(a.name)}</td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(noteStr)}</td>
+      const sw=a.image_url?`<img src="${esc(a.image_url)}" class="swatch" loading="lazy" onerror="this.style.display='none'">`:'';
+      return `<tr><td><span style="display:flex;align-items:center;gap:8px">${sw}${esc(a.name)}</span></td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(noteStr)}</td>
       <td class="num" style="white-space:nowrap"><button class="btn ghost sm" style="margin-right:6px" onclick="editAddinFn('${a.id}')">edit</button><button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`;}).join('');
     html+=`<div class="cat-group"><div class="cat-head open" onclick="toggleCat(this)"><span class="chev">▶</span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
       <div class="cat-body open"><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -571,20 +576,20 @@ function renderAddins(){
 }
 $('#adSave').onclick=async()=>{
   const rec={type:$('#adType').value,name:$('#adName').value.trim(),supplier:$('#adSupplier').value,cost:num($('#adCost').value),
-    note_top:$('#adTop').value,note_mid:$('#adMid').value,note_base:$('#adBase').value,notes:$('#adNotes').value};
+    note_top:$('#adTop').value,note_mid:$('#adMid').value,note_base:$('#adBase').value,notes:$('#adNotes').value,image_url:$('#adImg').value.trim()||null};
   if(!rec.name){toast('Name required');return;}
   let error;if(editAddin){({error}=await sb.from('addins').update(rec).eq('id',editAddin));}else{({error}=await sb.from('addins').insert(rec));}
   if(error){toast('Error: '+error.message);return;}clearAddinForm();toast('Add-in saved');loadAll();
 };
 window.editAddinFn=id=>{const a=ADDIN.find(x=>x.id===id);if(!a)return;editAddin=id;
-  $('#adName').value=a.name;$('#adSupplier').value=a.supplier||'';$('#adCost').value=a.cost;
+  $('#adName').value=a.name;$('#adSupplier').value=a.supplier||'';$('#adCost').value=a.cost;$('#adImg').value=a.image_url||'';
   $('#adTop').value=a.note_top||'';$('#adMid').value=a.note_mid||'';$('#adBase').value=a.note_base||'';$('#adNotes').value=a.notes||'';
   $('#adType').value=a.type;$('#adType').onchange();
   $('#adFormTitle').textContent='Edit add-in';$('#adClear').style.display='inline-block';
   document.querySelector('#v-addins .card').scrollIntoView({behavior:'smooth',block:'start'});};
 window.delAddin=async id=>{if(!confirm('Delete this add-in?'))return;await sb.from('addins').delete().eq('id',id);toast('Deleted');loadAll();};
 $('#adClear').onclick=clearAddinForm;
-function clearAddinForm(){editAddin=null;$('#adName').value='';$('#adSupplier').value='';$('#adCost').value='0';$('#adTop').value='';$('#adMid').value='';$('#adBase').value='';$('#adNotes').value='';$('#adFormTitle').textContent='New add-in';$('#adClear').style.display='none';}
+function clearAddinForm(){editAddin=null;$('#adName').value='';$('#adSupplier').value='';$('#adImg').value='';$('#adCost').value='0';$('#adTop').value='';$('#adMid').value='';$('#adBase').value='';$('#adNotes').value='';$('#adFormTitle').textContent='New add-in';$('#adClear').style.display='none';}
 
 function renderDash(){
   $('#s-batches').textContent=BAT.length;$('#s-recipes').textContent=REC.length;
@@ -609,7 +614,7 @@ function fillAddinPickers(){
   const frags=ADDIN.filter(a=>a.type==='fragrance'),eos=ADDIN.filter(a=>a.type==='eo'),micas=ADDIN.filter(a=>a.type==='mica');
   $('#mkFrag').innerHTML='<option value="">— none —</option>'+frags.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
   $('#mkEO').innerHTML='<option value="">— none —</option>'+eos.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
-  $('#mkMicas').innerHTML=micas.length?micas.map(a=>`<button type="button" class="btn ghost sm mica-tag" data-id="${a.id}" onclick="toggleMica('${a.id}',this)">${esc(a.name)}</button>`).join(''):'<span class="dim mono" style="font-size:11px">No micas yet — add some in the Add-ins tab.</span>';
+  $('#mkMicas').innerHTML=micas.length?micas.map(a=>`<button type="button" class="btn ghost sm mica-tag" data-id="${a.id}" onclick="toggleMica('${a.id}',this)">${a.image_url?`<img src="${esc(a.image_url)}" class="swatch sm" loading="lazy" onerror="this.style.display='none'">`:''}${esc(a.name)}</button>`).join(''):'<span class="dim mono" style="font-size:11px">No micas yet — add some in the Add-ins tab.</span>';
   // restore selection highlight
   mkMicaSel.forEach(id=>{const b=document.querySelector('.mica-tag[data-id="'+id+'"]');if(b){b.style.background='var(--accent)';b.style.color='#04110f';}});
 }
