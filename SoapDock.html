@@ -677,8 +677,51 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">PH:</span> ${esc(b.ph_result||'—')} ${b.ph_date?'('+b.ph_date+')':''} &nbsp; <span class="dim">Ready:</span> ${b.earliest_ready||'—'}</p>
         ${b.notes_craft?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Notes:</span> ${esc(b.notes_craft)}</p>`:''}
       </div>
+    </div>
+    <div style="margin-top:18px">
+      <h3>Photos</h3>
+      <div id="batchPhotoGrid" style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0"></div>
+      <input id="batchPhotoInput" type="file" accept="image/*" multiple style="display:none">
+      <button class="btn ghost sm" id="batchPhotoBtn">📷 Add photo</button>
+      <span id="batchPhotoStatus" class="dim mono" style="font-size:11px;margin-left:8px"></span>
     </div>`;
+  renderBatchPhotos(b);
 };
+let curBatch=null;
+function renderBatchPhotos(b){
+  curBatch=b;const ph=b.photos||[];
+  $('#batchPhotoGrid').innerHTML=ph.length?ph.map((p,i)=>`
+    <div style="position:relative">
+      <img src="${p.url}" onclick="window.open('${p.url}')" style="width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer">
+      <button onclick="delBatchPhoto(${i})" style="position:absolute;top:-7px;right:-7px;background:var(--bad);color:#fff;border:none;width:22px;height:22px;border-radius:50%;cursor:pointer;line-height:1">×</button>
+    </div>`).join(''):'<span class="dim mono" style="font-size:12px">No photos.</span>';
+}
+function compressImageDesktop(file){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);
+  img.onload=()=>{URL.revokeObjectURL(u);const max=1200;let w=img.width,h=img.height;
+    if(w>h&&w>max){h=h*max/w;w=max;}else if(h>max){w=w*max/h;h=max;}
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);
+    cv.toBlob(b=>b?res(b):rej(new Error('compress')),'image/jpeg',0.7);};
+  img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('bad image'));};img.src=u;});}
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='batchPhotoBtn')$('#batchPhotoInput').click();});
+document.addEventListener('change',async e=>{
+  if(!e.target||e.target.id!=='batchPhotoInput'||!curBatch)return;
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  const ph=curBatch.photos?[...curBatch.photos]:[];
+  for(const file of files){$('#batchPhotoStatus').textContent='Adding…';
+    try{const blob=await compressImageDesktop(file);const path=Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
+      const{error}=await sb.storage.from('batch-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+      if(error){$('#batchPhotoStatus').textContent='Error: '+error.message;continue;}
+      const{data}=sb.storage.from('batch-photos').getPublicUrl(path);
+      ph.push({url:data.publicUrl,path,uploaded_at:new Date().toISOString()});
+    }catch(err){$('#batchPhotoStatus').textContent='Error: '+err.message;}}
+  await sb.from('batches').update({photos:ph}).eq('id',curBatch.id);
+  curBatch.photos=ph;renderBatchPhotos(curBatch);$('#batchPhotoStatus').textContent='Saved';
+  const bb=BAT.find(x=>x.id===curBatch.id);if(bb)bb.photos=ph;
+});
+window.delBatchPhoto=async i=>{if(!curBatch)return;const ph=curBatch.photos?[...curBatch.photos]:[];const p=ph[i];if(!p)return;
+  if(p.path){try{await sb.storage.from('batch-photos').remove([p.path]);}catch(e){}}
+  ph.splice(i,1);await sb.from('batches').update({photos:ph}).eq('id',curBatch.id);
+  curBatch.photos=ph;renderBatchPhotos(curBatch);const bb=BAT.find(x=>x.id===curBatch.id);if(bb)bb.photos=ph;};
 $('#batchBack').onclick=()=>{$('#batchDetailWrap').style.display='none';$('#batchListWrap').style.display='block';};
 window.delBatch=async id=>{if(!confirm('Delete this batch?'))return;await sb.from('batches').delete().eq('id',id);toast('Deleted');loadAll();};
 

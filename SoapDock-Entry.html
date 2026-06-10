@@ -128,6 +128,15 @@
         </div>
 
         <div class="card">
+          <div class="step-label">Photos</div>
+          <p class="dim mono" style="font-size:12px;margin-bottom:12px">Snap the batch to identify it later (in-progress, cut, cured).</p>
+          <div id="photoGrid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px"></div>
+          <input id="photoInput" type="file" accept="image/*" capture="environment" multiple style="display:none">
+          <button type="button" class="bigbtn" style="background:var(--panel2);color:var(--accent);border:1px solid var(--accent)" id="photoBtn">📷 Add photo</button>
+          <div id="photoStatus" class="dim mono" style="font-size:12px;margin-top:8px"></div>
+        </div>
+
+        <div class="card">
           <div class="step-label">Craft notes</div>
           <div class="row2">
             <div class="field"><label>Topping</label><input id="bTopping" placeholder="oats, petals…"></div>
@@ -188,7 +197,7 @@ const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[];
-let chosenRec=null, micaSel=[];
+let chosenRec=null, micaSel=[], batchPhotos=[];
 const $=s=>document.querySelector(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
 const CAT_COLOR={oil:'var(--accent)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',fragrance:'var(--warn)',additive:'var(--good)',other:'var(--dim)'};
@@ -281,7 +290,7 @@ function renderRecipeCards(){
 
 window.pickRecipe=id=>{
   chosenRec=REC.find(x=>x.id===id);if(!chosenRec)return;
-  micaSel=[];
+  micaSel=[];batchPhotos=[];
   $('#logStep1').style.display='none';
   $('#logStep2').style.display='block';
   $('#saveBar').style.display='block';
@@ -291,6 +300,7 @@ window.pickRecipe=id=>{
   $('#bDate').value=new Date().toISOString().slice(0,10);
   ['bFragOz','bEOOz','bTopping','bAppearance','bScentTop','bScentMid','bScentBase','bNotes','bReady','bBars'].forEach(i=>$('#'+i).value='');
   $('#bFrag').value='';$('#bEO').value='';
+  renderPhotoGrid();$('#photoStatus').textContent='';
   refreshSheet();
   window.scrollTo(0,0);
 };
@@ -338,6 +348,53 @@ function refreshSheet(){
     ${f.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')}`;
 }
 
+// ---- PHOTOS ----
+function renderPhotoGrid(){
+  $('#photoGrid').innerHTML=batchPhotos.map((p,i)=>`
+    <div style="position:relative">
+      <img src="${p.url}" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">
+      <button type="button" onclick="removePhoto(${i})" style="position:absolute;top:-7px;right:-7px;background:var(--bad);color:#fff;border:none;width:24px;height:24px;border-radius:50%;font-size:14px;cursor:pointer;line-height:1">×</button>
+    </div>`).join('');
+}
+window.removePhoto=async i=>{
+  const p=batchPhotos[i];if(!p)return;
+  if(p.path){try{await sb.storage.from('batch-photos').remove([p.path]);}catch(e){}}
+  batchPhotos.splice(i,1);renderPhotoGrid();
+};
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const max=1200;let w=img.width,h=img.height;
+      if(w>h&&w>max){h=h*max/w;w=max;}else if(h>max){w=w*max/h;h=max;}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      cv.toBlob(b=>b?resolve(b):reject(new Error('compress failed')),'image/jpeg',0.7);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('bad image'));};
+    img.src=url;
+  });
+}
+$('#photoBtn').onclick=()=>$('#photoInput').click();
+$('#photoInput').onchange=async e=>{
+  const files=[...e.target.files];e.target.value='';
+  if(!files.length)return;
+  for(const file of files){
+    $('#photoStatus').textContent='Adding photo…';
+    try{
+      const blob=await compressImage(file);
+      const path=Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
+      const{error}=await sb.storage.from('batch-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+      if(error){$('#photoStatus').textContent='Upload error: '+error.message;continue;}
+      const{data}=sb.storage.from('batch-photos').getPublicUrl(path);
+      batchPhotos.push({url:data.publicUrl,path,uploaded_at:new Date().toISOString()});
+      renderPhotoGrid();
+    }catch(err){$('#photoStatus').textContent='Photo error: '+err.message;}
+  }
+  $('#photoStatus').textContent=batchPhotos.length+' photo'+(batchPhotos.length===1?'':'s')+' added';
+};
+
 $('#bSave').onclick=async()=>{
   const m=MOLD.find(x=>x.id===$('#sheetMold').value)||MOLD[0];
   if(!chosenRec||!m){toast('Pick a recipe');return;}
@@ -353,7 +410,7 @@ $('#bSave').onclick=async()=>{
   const rec={
     recipe_id:chosenRec.id, recipe_name:chosenRec.name, mold_id:m.id, bars_made:bars, made_on:$('#bDate').value,
     snapshot:{name:chosenRec.name,superfat:chosenRec.superfat,lye_type:chosenRec.lye_type,water_method:chosenRec.water_method,lye_conc:chosenRec.lye_conc,water_disc:chosenRec.water_disc,water_pct:chosenRec.water_pct,ingredients:chosenRec.ingredients},
-    overrides:[], computed, addins:ad.list,
+    overrides:[], computed, addins:ad.list, photos:batchPhotos,
     fragrance_name:frag?frag.name:'', fragrance_manuf:frag?(frag.supplier||''):'',
     topping:$('#bTopping').value, appearance:$('#bAppearance').value,
     scent_top:$('#bScentTop').value, scent_mid:$('#bScentMid').value, scent_base:$('#bScentBase').value,
@@ -381,6 +438,7 @@ function renderHist(){
       <div class="top"><span class="nm">${esc(b.recipe_name)}</span><span class="dt">${b.made_on||''}</span></div>
       <div class="meta">${m?esc(m.name):'—'} · ${b.bars_made||'?'} bars${cb?' · '+money(cb)+'/bar':''}</div>
       ${chips.length?'<div>'+chips.map(c=>`<span class="chip">${c}</span>`).join('')+'</div>':''}
+      ${(b.photos&&b.photos.length)?'<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'+b.photos.map(p=>`<img src="${p.url}" onclick="window.open('${p.url}')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">`).join('')+'</div>':''}
       ${b.notes_craft?`<div class="meta" style="margin-top:8px;color:var(--txt)">${esc(b.notes_craft)}</div>`:''}
     </div>`;
   }).join('');
