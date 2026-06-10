@@ -349,12 +349,10 @@
         <div class="field"><label>Supplier</label><input id="adSupplier" placeholder="e.g. Nature's Garden"></div>
         <div class="field"><label id="adCostLabel">Cost per oz ($)</label><input id="adCost" type="number" step="0.01" value="0">
           <div class="hint" id="adCostHint">Fragrance/EO costed by oz used. Mica: cost per ¼ tsp use.</div></div>
-        <div id="adScentFields">
-          <div class="grid3">
-            <div class="field"><label>Top note</label><input id="adTop" placeholder="Citrus"></div>
-            <div class="field"><label>Middle note</label><input id="adMid" placeholder="Floral"></div>
-            <div class="field"><label>Base note</label><input id="adBase" placeholder="Cedarwood, Musk"></div>
-          </div>
+        <div id="adScentFields" class="grid3">
+          <div class="field"><label>Top note</label><input id="adTop" placeholder="Citrus"></div>
+          <div class="field"><label>Middle note</label><input id="adMid" placeholder="Floral"></div>
+          <div class="field"><label>Base note</label><input id="adBase" placeholder="Cedarwood, Musk"></div>
         </div>
         <div class="field" id="adNotesWrap"><label id="adNotesLabel">Color / notes</label><input id="adNotes" placeholder="color or notes"></div>
         <div><button class="btn" id="adSave">Save add-in</button> <button class="btn ghost" id="adClear" style="display:none">Cancel</button></div>
@@ -489,7 +487,7 @@ let editAddin=null;
 function adCostLabelFor(t){return t==='mica'?'Cost per ¼ tsp ($)':'Cost per oz ($)';}
 $('#adType').onchange=()=>{const t=$('#adType').value;$('#adCostLabel').textContent=adCostLabelFor(t);
   const isMica=t==='mica';
-  $('#adScentFields').style.display=isMica?'none':'block';
+  $('#adScentFields').style.display=isMica?'none':'grid';
   $('#adNotesLabel').textContent=isMica?'Color notes':'Notes';
   $('#adCostHint').textContent=isMica?'Costed as one ¼ tsp use per batch.':'Costed by oz used in the batch.';};
 function renderAddins(){
@@ -501,7 +499,7 @@ function renderAddins(){
     const unit=t==='mica'?'/¼tsp':'/oz';
     const rows=items.map(a=>{const noteStr=t==='mica'?(a.notes||''):[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ');
       return `<tr><td>${esc(a.name)}</td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(noteStr)}</td>
-      <td class="num"><button class="btn ghost sm" onclick="editAddinFn('${a.id}')">edit</button> <button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`;}).join('');
+      <td class="num" style="white-space:nowrap"><button class="btn ghost sm" style="margin-right:6px" onclick="editAddinFn('${a.id}')">edit</button><button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`;}).join('');
     html+=`<div class="cat-group"><div class="cat-head open" onclick="toggleCat(this)"><span class="chev">▶</span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
       <div class="cat-body open"><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   });
@@ -514,10 +512,12 @@ $('#adSave').onclick=async()=>{
   let error;if(editAddin){({error}=await sb.from('addins').update(rec).eq('id',editAddin));}else{({error}=await sb.from('addins').insert(rec));}
   if(error){toast('Error: '+error.message);return;}clearAddinForm();toast('Add-in saved');loadAll();
 };
-window.editAddinFn=id=>{const a=ADDIN.find(x=>x.id===id);if(!a)return;editAddin=id;$('#adType').value=a.type;$('#adType').onchange();
+window.editAddinFn=id=>{const a=ADDIN.find(x=>x.id===id);if(!a)return;editAddin=id;
   $('#adName').value=a.name;$('#adSupplier').value=a.supplier||'';$('#adCost').value=a.cost;
   $('#adTop').value=a.note_top||'';$('#adMid').value=a.note_mid||'';$('#adBase').value=a.note_base||'';$('#adNotes').value=a.notes||'';
-  $('#adFormTitle').textContent='Edit add-in';$('#adClear').style.display='inline-block';};
+  $('#adType').value=a.type;$('#adType').onchange();
+  $('#adFormTitle').textContent='Edit add-in';$('#adClear').style.display='inline-block';
+  document.querySelector('#v-addins .card').scrollIntoView({behavior:'smooth',block:'start'});};
 window.delAddin=async id=>{if(!confirm('Delete this add-in?'))return;await sb.from('addins').delete().eq('id',id);toast('Deleted');loadAll();};
 $('#adClear').onclick=clearAddinForm;
 function clearAddinForm(){editAddin=null;$('#adName').value='';$('#adSupplier').value='';$('#adCost').value='0';$('#adTop').value='';$('#adMid').value='';$('#adBase').value='';$('#adNotes').value='';$('#adFormTitle').textContent='New add-in';$('#adClear').style.display='none';}
