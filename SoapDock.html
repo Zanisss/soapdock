@@ -72,6 +72,12 @@
   .toast.show{opacity:1}
   .sync{font-family:var(--mono);font-size:11px;color:var(--dim)}
   .sync.live{color:var(--good)}
+  .sync.ok{color:var(--dim)}
+  .sync.off{color:var(--warn)}
+  .themes{display:flex;gap:7px;align-items:center;margin-right:4px}
+  .tdot{width:13px;height:13px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;background-clip:padding-box}
+  .tdot:hover{transform:scale(1.15)}
+  .tdot.on{border-color:var(--txt)}
   .back{font-family:var(--mono);font-size:12px;color:var(--accent);cursor:pointer;margin-bottom:14px;display:inline-block}
   .lineitem{display:grid;grid-template-columns:1fr 70px 80px 30px;gap:8px;margin-bottom:8px;align-items:center}
   .lineitem select,.lineitem input{margin:0;padding:7px 8px}
@@ -120,7 +126,7 @@
 <div id="app">
   <header>
     <div class="brand">Soap<b>Dock</b></div>
-    <div class="who"><span class="sync" id="syncState">connecting…</span><span id="whoEmail"></span><a id="logout">log out</a></div>
+    <div class="who"><span class="themes" id="themeDots"></span><span class="sync" id="syncState">connecting…</span><span id="whoEmail"></span><a id="logout">log out</a></div>
   </header>
   <nav>
     <button data-v="dash" class="on">Dashboard</button>
@@ -389,6 +395,39 @@ const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cmVvZWlibmZmcXF1cHF5bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDA3NzEsImV4cCI6MjA5NjYxNjc3MX0.U6NBONS7pWbw5v9cMJf2-K9u-ToS97FP7jGilg2682g";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// ---- THEMES (Dock standard four; preference follows the logged-in user) ----
+const THEMES={
+  teal:  {accent:'#3ad6c4',accent2:'#2a9d8f'},
+  purple:{accent:'#a78bfa',accent2:'#7c5ce0'},
+  green: {accent:'#56c596',accent2:'#3da876'},
+  orange:{accent:'#f0a35e',accent2:'#d97f33'}
+};
+let UID=null, THEME='teal';
+function applyTheme(name){
+  const t=THEMES[name]||THEMES.teal; THEME=THEMES[name]?name:'teal';
+  const r=document.documentElement.style;
+  r.setProperty('--accent',t.accent); r.setProperty('--accent2',t.accent2);
+  try{localStorage.setItem('sd_theme',THEME);}catch(e){}
+  renderThemeDots();
+}
+function renderThemeDots(){
+  const el=document.getElementById('themeDots'); if(!el)return;
+  el.innerHTML=Object.keys(THEMES).map(n=>
+    `<button class="tdot${n===THEME?' on':''}" style="background:${THEMES[n].accent}" title="${n}" onclick="setTheme('${n}')"></button>`).join('');
+}
+window.setTheme=async function(name){
+  applyTheme(name);
+  if(!UID)return;
+  await sb.from('user_prefs').upsert({user_id:UID,theme:THEME,updated_at:new Date().toISOString()});
+};
+async function loadTheme(){
+  if(!UID)return;
+  const {data}=await sb.from('user_prefs').select('theme').eq('user_id',UID).maybeSingle();
+  if(data&&data.theme)applyTheme(data.theme);
+}
+// paint instantly from last-known theme (no cyan flash) before auth resolves
+try{const c=localStorage.getItem('sd_theme');if(c)applyTheme(c);}catch(e){}
+
 let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[], openIng=null, editRec=null;
 let mkMicaSel=[];
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
@@ -456,8 +495,10 @@ async function init(){const{data:{session}}=await sb.auth.getSession();if(sessio
 $('#loginBtn').onclick=async()=>{const email=$('#email').value.trim(),password=$('#pass').value;$('#loginErr').textContent='';
   const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){$('#loginErr').textContent=error.message;return;}showApp(data.session);};
 $('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
-$('#logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
-function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;loadAll();subscribe();}
+$('#logout').onclick=async()=>{try{await sb.auth.signOut({scope:'local'});}catch(e){}location.reload();};
+// boot to login on any sign-out (token expiry, logout elsewhere), not just the button
+sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT')location.reload();});
+function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;UID=s.user.id;renderThemeDots();loadTheme();loadAll();subscribe();}
 
 async function loadAll(){
   const [i,r,b,p,m,a]=await Promise.all([
@@ -468,11 +509,31 @@ async function loadAll(){
     sb.from('molds').select('*').order('total_oil_g',{ascending:false}),
     sb.from('addins').select('*').order('name')
   ]);
+  restOk=![i,r,b,p,m,a].some(x=>x.error);
+  refreshSync();
   ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];
   renderAll();
 }
-function subscribe(){sb.channel('soapdock').on('postgres_changes',{event:'*',schema:'public'},()=>loadAll())
-  .subscribe(st=>{const e=$('#syncState');if(st==='SUBSCRIBED'){e.textContent='live';e.classList.add('live');}else{e.textContent='offline';e.classList.remove('live');}});}
+// ---- SYNC BADGE + REALTIME (REST decides online/offline; realtime only upgrades to "live") ----
+let restOk=false, rtLive=false, rtChannel=null, rtTimer=null, rtDelay=1000;
+function refreshSync(){
+  const e=$('#syncState'); if(!e)return;
+  e.className='sync'+(rtLive?' live':restOk?' ok':' off');
+  e.textContent=rtLive?'live':restOk?'online':'offline';
+}
+function subscribe(){
+  if(rtChannel){try{sb.removeChannel(rtChannel);}catch(e){} rtChannel=null;}
+  rtChannel=sb.channel('soapdock').on('postgres_changes',{event:'*',schema:'public'},()=>loadAll())
+    .subscribe(st=>{
+      if(st==='SUBSCRIBED'){rtLive=true;rtDelay=1000;refreshSync();}
+      else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'||st==='CLOSED'){
+        rtLive=false;refreshSync();
+        clearTimeout(rtTimer);
+        rtTimer=setTimeout(subscribe,rtDelay);
+        rtDelay=Math.min(rtDelay*2,60000); // 1s → 2s → 4s … capped at 60s
+      }
+    });
+}
 
 // ---- INVENTORY (purchased - consumed by batches) ----
 function ingPurchased(ing){return PUR.filter(p=>p.ingredient_id===ing.id).reduce((a,p)=>a+pkgToRecipeUnits(p.pkg_size,p.pkg_unit,ing.unit||'g'),0);}

@@ -96,7 +96,7 @@
 <div id="app">
   <header>
     <div class="logo">Soap<b>Dock</b></div>
-    <div class="who"><span id="whoEmail"></span> · <span id="logout" style="color:var(--accent);cursor:pointer">log out</span></div>
+    <div class="who"><span class="themes" id="themeDots" style="display:inline-flex;gap:9px;vertical-align:middle;margin-right:10px"></span><span id="whoEmail"></span> · <span id="logout" style="color:var(--accent);cursor:pointer">log out</span></div>
   </header>
 
   <div class="view show" id="v-log">
@@ -196,6 +196,38 @@ const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cmVvZWlibmZmcXF1cHF5bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDA3NzEsImV4cCI6MjA5NjYxNjc3MX0.U6NBONS7pWbw5v9cMJf2-K9u-ToS97FP7jGilg2682g";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// ---- THEMES (matches desktop names; hexes tuned to Entry's brighter palette) ----
+const THEMES={
+  teal:  {accent:'#34e3c0',accent2:'#2bd0af'},
+  purple:{accent:'#b78bff',accent2:'#9a66f0'},
+  green: {accent:'#34e3a0',accent2:'#2bc98a'},
+  orange:{accent:'#f0a830',accent2:'#dd9018'}
+};
+let UID=null, THEME='teal';
+function applyTheme(name){
+  const t=THEMES[name]||THEMES.teal; THEME=THEMES[name]?name:'teal';
+  const r=document.documentElement.style;
+  r.setProperty('--accent',t.accent); r.setProperty('--accent2',t.accent2);
+  try{localStorage.setItem('sd_theme',THEME);}catch(e){}
+  renderThemeDots();
+}
+function renderThemeDots(){
+  const el=document.getElementById('themeDots'); if(!el)return;
+  el.innerHTML=Object.keys(THEMES).map(n=>
+    `<button class="tdot${n===THEME?' on':''}" style="width:17px;height:17px;border-radius:50%;border:2px solid ${n===THEME?'var(--txt)':'transparent'};background:${THEMES[n].accent};padding:0;cursor:pointer" title="${n}" onclick="setTheme('${n}')"></button>`).join('');
+}
+window.setTheme=async function(name){
+  applyTheme(name);
+  if(!UID)return;
+  await sb.from('user_prefs').upsert({user_id:UID,theme:THEME,updated_at:new Date().toISOString()});
+};
+async function loadTheme(){
+  if(!UID)return;
+  const {data}=await sb.from('user_prefs').select('theme').eq('user_id',UID).maybeSingle();
+  if(data&&data.theme)applyTheme(data.theme);
+}
+try{const c=localStorage.getItem('sd_theme');if(c)applyTheme(c);}catch(e){}
+
 let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[];
 let chosenRec=null, micaSel=[], batchPhotos=[];
 const $=s=>document.querySelector(s);
@@ -253,8 +285,9 @@ async function init(){const{data:{session}}=await sb.auth.getSession();if(sessio
 $('#loginBtn').onclick=async()=>{const email=$('#email').value.trim(),password=$('#pass').value;$('#loginErr').textContent='';
   const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){$('#loginErr').textContent=error.message;return;}showApp(data.session);};
 $('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
-$('#logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
-function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;loadAll();}
+$('#logout').onclick=async()=>{try{await sb.auth.signOut({scope:'local'});}catch(e){}location.reload();};
+sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT')location.reload();});
+function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;UID=s.user.id;renderThemeDots();loadTheme();loadAll();}
 
 async function loadAll(){
   const [i,r,b,p,m,a]=await Promise.all([
