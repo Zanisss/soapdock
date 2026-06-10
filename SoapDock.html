@@ -10,13 +10,13 @@
   :root{
     --bg:#0a0e14; --panel:#11161f; --panel2:#161d28; --line:#222c3a;
     --txt:#d4dde8; --dim:#7d8a9c; --accent:#3ad6c4; --accent2:#2a9d8f;
-    --warn:#e0a458; --bad:#e06c75; --good:#56c596;
+    --warn:#e0a458; --bad:#e06c75; --good:#56c596; --violet:#a78bfa; --blue:#5aa9e6;
     --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
   button{font-family:var(--sans);cursor:pointer}
-  input,select{font-family:var(--mono)}
+  input,select,textarea{font-family:var(--mono)}
   #login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100}
   #login .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:36px;width:340px}
   #login h1{font-family:var(--mono);font-size:22px;letter-spacing:1px;margin-bottom:4px}
@@ -24,7 +24,7 @@
   #login input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:11px 12px;border-radius:6px;margin-bottom:12px;font-size:13px}
   #login button{width:100%;background:var(--accent);color:#04110f;border:none;padding:12px;border-radius:6px;font-weight:700;font-size:14px}
   #login .err{color:var(--bad);font-size:12px;font-family:var(--mono);margin-top:10px;min-height:16px}
-  #app{display:none;max-width:1180px;margin:0 auto;padding:0 20px 60px}
+  #app{display:none;max-width:1240px;margin:0 auto;padding:0 20px 80px}
   header{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:10}
   .brand{font-family:var(--mono);font-size:20px;letter-spacing:1px;font-weight:600}
   .brand b{color:var(--accent)}
@@ -38,6 +38,7 @@
   .row{display:flex;gap:18px;flex-wrap:wrap}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
   .card h2{font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:14px;font-weight:600}
+  .card h3{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin:16px 0 10px;font-weight:600}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;color:var(--dim);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
   td{padding:9px 10px;border-bottom:1px solid var(--panel2)}
@@ -49,39 +50,44 @@
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
   .btn.sm{padding:5px 10px;font-size:12px}
   .btn.danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+  .btn.big{padding:14px 22px;font-size:15px}
   .field{margin-bottom:12px}
   .field label{display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:5px}
   .field .hint{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:none;letter-spacing:0;margin-top:4px}
-  .field input,.field select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:9px 10px;border-radius:6px;font-size:13px}
-  .inline-unit{display:flex;align-items:center;gap:8px}
-  .inline-unit input{flex:1}
-  .inline-unit .u{font-family:var(--mono);font-size:13px;color:var(--accent);min-width:34px}
+  .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:9px 10px;border-radius:6px;font-size:13px}
+  .field textarea{font-family:var(--sans);min-height:54px;resize:vertical}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
   .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
-  .pill.fd{color:var(--warn);border-color:var(--warn)}
   .pill.sd{color:var(--accent);border-color:var(--accent2)}
-  .stat{flex:1;min-width:150px}
-  .stat .v{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent)}
+  .stat{flex:1;min-width:140px}
+  .stat .v{font-family:var(--mono);font-size:24px;font-weight:600;color:var(--accent)}
   .stat .l{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-top:2px}
   .empty{color:var(--dim);font-family:var(--mono);font-size:13px;padding:20px;text-align:center}
   .toast{position:fixed;bottom:24px;right:24px;background:var(--panel2);border:1px solid var(--accent2);color:var(--txt);padding:12px 18px;border-radius:8px;font-family:var(--mono);font-size:13px;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.show{opacity:1}
-  .ingline{display:grid;grid-template-columns:1fr 90px 34px;gap:8px;margin-bottom:8px;align-items:center}
-  .ingline select,.ingline input{margin:0}
-  .ingline .x{background:transparent;border:1px solid var(--line);color:var(--bad);border-radius:6px;padding:8px 0;font-family:var(--mono)}
-  .margin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px}
+  .sync{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .sync.live{color:var(--good)}
+  .back{font-family:var(--mono);font-size:12px;color:var(--accent);cursor:pointer;margin-bottom:14px;display:inline-block}
+  .lineitem{display:grid;grid-template-columns:1fr 70px 80px 30px;gap:8px;margin-bottom:8px;align-items:center}
+  .lineitem select,.lineitem input{margin:0;padding:7px 8px}
+  .lineitem .x{background:transparent;border:1px solid var(--line);color:var(--bad);border-radius:6px;padding:7px 0;font-family:var(--mono)}
+  .readout{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px;margin-top:12px;font-family:var(--mono);font-size:13px}
+  .readout .k{color:var(--dim)}
+  .readout b{color:var(--accent)}
+  .readout .warn{color:var(--warn);font-size:12px;margin-top:8px}
+  .catdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .margin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:14px}
   .margin-box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px}
   .margin-box .pct{font-family:var(--mono);font-size:12px;color:var(--dim)}
   .margin-box .price{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--good);margin-top:4px}
   .margin-box .sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
-  .sync{font-family:var(--mono);font-size:11px;color:var(--dim)}
-  .sync.live{color:var(--good)}
-  .costline{display:flex;gap:20px;flex-wrap:wrap;margin:6px 0 2px;font-family:var(--mono);font-size:12px}
-  .costline .k{color:var(--dim)}
-  .costline .hi{color:var(--warn)}
-  .costline .use{color:var(--good)}
+  .costline{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0;font-family:var(--mono);font-size:12px}
+  .costline .k{color:var(--dim)}.costline .hi{color:var(--warn)}.costline .use{color:var(--good)}
   .purch-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
   .purch-form .full{grid-column:1/3}
-  .back{font-family:var(--mono);font-size:12px;color:var(--accent);cursor:pointer;margin-bottom:14px;display:inline-block}
+  .sheet-sec{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}
 </style>
 </head>
 <body>
@@ -102,97 +108,192 @@
     <div class="brand">Soap<b>Dock</b></div>
     <div class="who"><span class="sync" id="syncState">connecting…</span><span id="whoEmail"></span><a id="logout">log out</a></div>
   </header>
-
   <nav>
     <button data-v="dash" class="on">Dashboard</button>
-    <button data-v="price">Pricing</button>
-    <button data-v="batches">Batches</button>
+    <button data-v="make">Make a Batch</button>
+    <button data-v="batches">Batch History</button>
     <button data-v="recipes">Recipes</button>
+    <button data-v="molds">Molds</button>
     <button data-v="ingredients">Ingredients</button>
+    <button data-v="pricing">Pricing</button>
   </nav>
 
+  <!-- DASHBOARD -->
   <div class="view on" id="v-dash">
     <div class="row" style="margin-bottom:18px">
-      <div class="card stat"><div class="v" id="s-batches">0</div><div class="l">Batches logged</div></div>
+      <div class="card stat"><div class="v" id="s-batches">0</div><div class="l">Batches</div></div>
       <div class="card stat"><div class="v" id="s-recipes">0</div><div class="l">Recipes</div></div>
       <div class="card stat"><div class="v" id="s-bars">0</div><div class="l">Bars made</div></div>
-      <div class="card stat"><div class="v" id="s-spend">$0</div><div class="l">Total ingredient spend</div></div>
+      <div class="card stat"><div class="v" id="s-spend">$0</div><div class="l">Ingredient spend</div></div>
     </div>
     <div class="card">
-      <h2>Recent batches from the bench</h2>
-      <table><thead><tr><th>Date</th><th>Recipe</th><th>By</th><th class="num">Bars</th><th class="num">Cost/bar</th></tr></thead>
+      <h2>Recent batches</h2>
+      <table><thead><tr><th>Date</th><th>Name</th><th>Recipe</th><th>Mold</th><th class="num">Bars</th><th class="num">Cost/bar</th></tr></thead>
       <tbody id="dashBatches"></tbody></table>
-      <div class="empty" id="dashEmpty">No batches logged yet.</div>
+      <div class="empty" id="dashEmpty">No batches yet.</div>
     </div>
   </div>
 
-  <div class="view" id="v-price">
+  <!-- MAKE A BATCH -->
+  <div class="view" id="v-make">
     <div class="card">
-      <h2>Price a bar</h2>
-      <div class="row">
-        <div class="field" style="flex:2;min-width:240px"><label>Recipe</label><select id="priceRecipe"></select></div>
-        <div class="field" style="flex:1;min-width:120px"><label>Extra margins (comma %)</label><input id="priceMargins" value="10, 15, 20, 25, 30"></div>
+      <h2>Make a batch</h2>
+      <div class="grid3">
+        <div class="field"><label>Base recipe</label><select id="mkRecipe"></select></div>
+        <div class="field"><label>Mold</label><select id="mkMold"></select></div>
+        <div class="field"><label>Date made</label><input id="mkDate" type="date"></div>
       </div>
-      <div id="priceResult"></div>
+      <div id="mkReadout"></div>
+      <div id="mkSheet" style="display:none">
+        <div class="sheet-sec">
+          <h3>This batch — swaps &amp; variables</h3>
+          <p class="dim mono" style="font-size:11px;margin-bottom:10px">Oils &amp; lye come from the recipe. Change just what's different this run.</p>
+          <div class="grid2">
+            <div class="field"><label>Fragrance name</label><input id="mkFragName" placeholder="Green Clover & Aloe"></div>
+            <div class="field"><label>Fragrance manufacturer</label><input id="mkFragManuf" placeholder="NG"></div>
+          </div>
+          <label style="display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px">Override / add ingredients for this batch</label>
+          <div id="mkOverrides"></div>
+          <button class="btn ghost sm" id="mkAddOverride" style="margin:4px 0 8px">+ add / swap ingredient</button>
+        </div>
+        <div class="sheet-sec">
+          <h3>Craft notes</h3>
+          <div class="grid2">
+            <div class="field"><label>Topping technique</label><textarea id="mkTopping" placeholder="Chopstick swirl of 3 shades of green"></textarea></div>
+            <div class="field"><label>Appearance</label><textarea id="mkAppearance" placeholder="3 shades of green + white hanger swirl"></textarea></div>
+          </div>
+          <div class="grid3">
+            <div class="field"><label>Scent — top</label><input id="mkScentTop" placeholder="Citrus"></div>
+            <div class="field"><label>Scent — middle</label><input id="mkScentMid" placeholder="Jasmine Petals"></div>
+            <div class="field"><label>Scent — base</label><input id="mkScentBase" placeholder="Wood Musk"></div>
+          </div>
+        </div>
+        <div class="sheet-sec">
+          <h3>Results</h3>
+          <div class="grid4">
+            <div class="field"><label>Bars made (actual)</label><input id="mkBars" type="number"></div>
+            <div class="field"><label>Earliest ready</label><input id="mkReady" type="date"></div>
+            <div class="field"><label>PH result</label><input id="mkPh" placeholder="9"></div>
+            <div class="field"><label>PH test date</label><input id="mkPhDate" type="date"></div>
+          </div>
+          <div class="field"><label>Notes</label><textarea id="mkNotes"></textarea></div>
+        </div>
+        <button class="btn big" id="mkSave">Log this batch</button>
+      </div>
     </div>
   </div>
 
+  <!-- BATCH HISTORY -->
   <div class="view" id="v-batches">
-    <div class="card">
-      <h2>All batches</h2>
-      <table><thead><tr><th>Date</th><th>Recipe</th><th>By</th><th class="num">Bars</th><th class="num">Batch cost</th><th class="num">Cost/bar</th><th></th></tr></thead>
-      <tbody id="batchRows"></tbody></table>
-      <div class="empty" id="batchEmpty">No batches yet.</div>
+    <div id="batchListWrap">
+      <div class="card">
+        <h2>Batch history</h2>
+        <table><thead><tr><th>Date</th><th>Name</th><th>Recipe</th><th>Mold</th><th class="num">Bars</th><th class="num">Cost/bar</th><th></th></tr></thead>
+        <tbody id="batchRows"></tbody></table>
+        <div class="empty" id="batchEmpty">No batches yet.</div>
+      </div>
+    </div>
+    <div id="batchDetailWrap" style="display:none">
+      <span class="back" id="batchBack">‹ back to history</span>
+      <div class="card" id="batchDetail"></div>
     </div>
   </div>
 
+  <!-- RECIPES -->
   <div class="view" id="v-recipes">
-    <div class="row">
-      <div class="card" style="flex:1;min-width:300px">
-        <h2 id="recipeFormTitle">New recipe</h2>
-        <div class="field"><label>Name</label><input id="rName" placeholder="e.g. Lavender Oatmeal"></div>
-        <div class="field"><label>Bars per batch</label><input id="rBars" type="number" value="10" min="1"></div>
-        <label style="display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px">Ingredients</label>
-        <div id="rIngs"></div>
-        <button class="btn ghost sm" id="rAddIng" style="margin:4px 0 14px">+ ingredient</button>
-        <div><button class="btn" id="rSave">Save recipe</button> <button class="btn ghost" id="rClear" style="display:none">Cancel edit</button></div>
-      </div>
-      <div class="card" style="flex:1.4;min-width:340px">
-        <h2>Recipes</h2>
-        <table><thead><tr><th>Name</th><th>Source</th><th class="num">Bars</th><th class="num">Cost/bar</th><th></th></tr></thead>
+    <div id="recipeListWrap">
+      <div class="card">
+        <h2>Recipes <button class="btn sm" id="newRecipe" style="float:right">+ New recipe</button></h2>
+        <table><thead><tr><th>Name</th><th>From</th><th>Default mold</th><th class="num">SF%</th><th class="num">Cost/bar*</th><th></th></tr></thead>
         <tbody id="recipeRows"></tbody></table>
         <div class="empty" id="recipeEmpty">No recipes yet.</div>
+        <p class="dim mono" style="font-size:10px;margin-top:8px">*Cost/bar at the recipe's default mold.</p>
+      </div>
+    </div>
+    <div id="recipeEditWrap" style="display:none">
+      <span class="back" id="recipeBack">‹ back to recipes</span>
+      <div class="row">
+        <div class="card" style="flex:1.3;min-width:380px">
+          <h2 id="recipeEditTitle">New recipe</h2>
+          <div class="grid2">
+            <div class="field"><label>Name</label><input id="reName" placeholder="The Best"></div>
+            <div class="field"><label>Recipe from</label><input id="reFrom" placeholder="source / inspiration"></div>
+          </div>
+          <div class="field"><label>Default mold</label><select id="reMold"></select></div>
+          <h3>Formulation parameters</h3>
+          <div class="grid3">
+            <div class="field"><label>Superfat %</label><input id="reSF" type="number" step="0.5" value="5"></div>
+            <div class="field"><label>Lye type</label><select id="reLyeType"><option>NaOH</option><option>KOH</option></select></div>
+            <div class="field"><label>Water method</label><select id="reWaterMethod"><option value="conc">Lye concentration</option><option value="pctoils">% of oils</option></select></div>
+          </div>
+          <div class="grid3" id="reConcFields">
+            <div class="field"><label>Lye conc. %</label><input id="reLyeConc" type="number" value="33"></div>
+            <div class="field"><label>Water discount %</label><input id="reWaterDisc" type="number" value="0"></div>
+            <div></div>
+          </div>
+          <div class="grid3" id="rePctFields" style="display:none">
+            <div class="field"><label>Water % of oils</label><input id="reWaterPct" type="number" value="33"></div>
+          </div>
+          <h3>Oils &amp; ingredients</h3>
+          <p class="dim mono" style="font-size:11px;margin-bottom:8px">Oils as % of total oil weight (should sum to 100). Additives: % / tsp / Tbsp / ✓.</p>
+          <div id="reLines"></div>
+          <button class="btn ghost sm" id="reAddLine" style="margin:4px 0 14px">+ add ingredient</button>
+          <div><button class="btn" id="reSave">Save recipe</button></div>
+        </div>
+        <div class="card" style="flex:1;min-width:300px">
+          <h2>Live readout</h2>
+          <div id="reReadout"><div class="empty">Add oils to see lye, water &amp; cost.</div></div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- INGREDIENTS (list + detail) -->
+  <!-- MOLDS -->
+  <div class="view" id="v-molds">
+    <div class="row">
+      <div class="card" style="flex:1;min-width:280px">
+        <h2 id="moldFormTitle">New mold</h2>
+        <div class="field"><label>Name</label><input id="moName" placeholder="10-bar mold"></div>
+        <div class="field"><label>Total oil weight (g)</label><input id="moOil" type="number" value="1000">
+          <div class="hint">Grams of OILS this mold holds. Lye/water compute from this.</div></div>
+        <div class="field"><label>Sellable bars</label><input id="moBars" type="number" value="10">
+          <div class="hint">Bars you actually sell. Cost/bar divides by this.</div></div>
+        <div><button class="btn" id="moSave">Save mold</button> <button class="btn ghost" id="moClear" style="display:none">Cancel</button></div>
+      </div>
+      <div class="card" style="flex:1.4;min-width:320px">
+        <h2>Molds</h2>
+        <table><thead><tr><th>Name</th><th class="num">Oil weight</th><th class="num">Bars</th><th></th></tr></thead>
+        <tbody id="moldRows"></tbody></table>
+        <div class="empty" id="moldEmpty">No molds yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INGREDIENTS -->
   <div class="view" id="v-ingredients">
-    <!-- LIST -->
     <div id="ingListWrap">
       <div class="row">
         <div class="card" style="flex:1;min-width:280px">
           <h2 id="ingFormTitle">New ingredient</h2>
           <div class="field"><label>Name</label><input id="iName" placeholder="e.g. Olive Oil"></div>
+          <div class="field"><label>Category</label>
+            <select id="iCat"><option value="oil">Oil / Butter</option><option value="wax">Wax</option><option value="lye">Lye</option><option value="liquid">Liquid</option><option value="fragrance">Fragrance</option><option value="additive">Additive</option><option value="other">Other</option></select>
+          </div>
+          <div class="field" id="iSapWrap"><label>SAP value (NaOH)</label><input id="iSap" type="number" step="0.0001" value="0">
+            <div class="hint">Saponification value — needed for oils to compute lye. (Olive ≈ 0.134)</div></div>
           <div class="field"><label>Recipe unit</label>
-            <select id="iUnit"><option value="oz">oz (weight)</option><option value="lb">lb</option><option value="g">g</option><option value="kg">kg</option><option value="fl_oz">fl oz (volume)</option><option value="ml">ml</option><option value="each">each</option></select>
-            <div class="hint">The unit your recipes measure this in. Purchases get converted to this.</div>
-          </div>
-          <div class="field"><label>Safety buffer %</label><input id="iBuffer" type="number" step="1" value="10">
-            <div class="hint">Costing cost = (avg of last 5 purchases) + buffer%.</div>
-          </div>
-          <div><button class="btn" id="iSave">Save ingredient</button> <button class="btn ghost" id="iClear" style="display:none">Cancel edit</button></div>
+            <select id="iUnit"><option value="g">g</option><option value="oz">oz</option><option value="ml">ml</option><option value="each">each</option></select></div>
+          <div class="field"><label>Safety buffer %</label><input id="iBuffer" type="number" value="10"></div>
+          <div><button class="btn" id="iSave">Save ingredient</button> <button class="btn ghost" id="iClear" style="display:none">Cancel</button></div>
         </div>
-        <div class="card" style="flex:1.6;min-width:360px">
+        <div class="card" style="flex:1.7;min-width:380px">
           <h2>Cost inventory</h2>
-          <table><thead><tr><th>Ingredient</th><th>Unit</th><th class="num">Costing cost</th><th class="num">On hand</th><th class="num">Batches left</th><th></th></tr></thead>
+          <table><thead><tr><th>Ingredient</th><th>Cat</th><th class="num">Costing</th><th class="num">On hand</th><th></th></tr></thead>
           <tbody id="ingRows"></tbody></table>
           <div class="empty" id="ingEmpty">No ingredients yet.</div>
         </div>
       </div>
     </div>
-
-    <!-- DETAIL -->
     <div id="ingDetailWrap" style="display:none">
       <span class="back" id="ingBack">‹ back to inventory</span>
       <div class="row">
@@ -201,13 +302,12 @@
           <div id="ingDetailCost"></div>
           <h2 style="margin-top:22px">Log a purchase</h2>
           <div class="purch-form">
-            <div class="field" style="margin:0"><label>Vendor</label><input id="pVendor" placeholder="e.g. Sonoma Farm"></div>
+            <div class="field" style="margin:0"><label>Vendor</label><input id="pVendor" placeholder="Amazon"></div>
             <div class="field" style="margin:0"><label>Date</label><input id="pDate" type="date"></div>
-            <div class="field" style="margin:0"><label>Package size</label><input id="pSize" type="number" step="0.01" placeholder="1"></div>
+            <div class="field" style="margin:0"><label>Package size</label><input id="pSize" type="number" step="0.01"></div>
             <div class="field" style="margin:0"><label>Package unit</label>
-              <select id="pUnit"><option value="gallon">gallon</option><option value="fl_oz">fl oz</option><option value="ml">ml</option><option value="l">liter</option><option value="lb">lb</option><option value="oz">oz</option><option value="kg">kg</option><option value="g">g</option><option value="each">each</option></select>
-            </div>
-            <div class="field full" style="margin:0"><label>Price paid ($ total)</label><input id="pPrice" type="number" step="0.01" placeholder="90.00"></div>
+              <select id="pUnit"><option value="gallon">gallon</option><option value="fl_oz">fl oz</option><option value="ml">ml</option><option value="l">liter</option><option value="lb">lb</option><option value="oz">oz</option><option value="kg">kg</option><option value="g">g</option><option value="each">each</option></select></div>
+            <div class="field full" style="margin:0"><label>Price paid ($)</label><input id="pPrice" type="number" step="0.01"></div>
           </div>
           <button class="btn" id="pSave">Add purchase</button>
         </div>
@@ -215,9 +315,22 @@
           <h2>Purchase history</h2>
           <table><thead><tr><th>Date</th><th>Vendor</th><th class="num">Size</th><th class="num">Paid</th><th class="num">$/unit</th><th></th></tr></thead>
           <tbody id="purchRows"></tbody></table>
-          <div class="empty" id="purchEmpty">No purchases logged yet.</div>
+          <div class="empty" id="purchEmpty">No purchases yet.</div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div class="view" id="v-pricing">
+    <div class="card">
+      <h2>Price a bar</h2>
+      <div class="row">
+        <div class="field" style="flex:2;min-width:240px"><label>Recipe</label><select id="prRecipe"></select></div>
+        <div class="field" style="flex:1;min-width:140px"><label>Mold</label><select id="prMold"></select></div>
+        <div class="field" style="flex:1;min-width:120px"><label>Margins (comma %)</label><input id="prMargins" value="10, 15, 20, 25, 30"></div>
+      </div>
+      <div id="prResult"></div>
     </div>
   </div>
 </div>
@@ -227,267 +340,373 @@
 <script>
 const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cmVvZWlibmZmcXF1cHF5bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDA3NzEsImV4cCI6MjA5NjYxNjc3MX0.U6NBONS7pWbw5v9cMJf2-K9u-ToS97FP7jGilg2682g";
-
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-let ING=[], REC=[], BAT=[], PUR=[], openIng=null;
 
+let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], openIng=null, editRec=null;
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
 const money4=n=>'$'+(Number(n)||0).toFixed(4);
 const UNIT_LBL={oz:'oz',lb:'lb',g:'g',kg:'kg',fl_oz:'fl oz',ml:'ml',l:'L',gallon:'gal',each:'ea'};
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+const CAT_COLOR={oil:'var(--accent)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',fragrance:'var(--warn)',additive:'var(--good)',other:'var(--dim)'};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1900);}
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function num(v,d){const n=parseFloat(v);return isNaN(n)?(d||0):n;}
 
-// ---------- UNIT CONVERSION ----------
-// Convert a purchase package into the ingredient's recipe unit, return total units in that purchase.
-// Weight base = grams; Volume base = ml. Oils default density 0.91 g/ml when crossing weight<->volume.
-const G={oz:28.3495,lb:453.592,g:1,kg:1000};
-const ML={fl_oz:29.5735,ml:1,l:1000,gallon:3785.41};
-const OIL_DENSITY=0.91; // g per ml
-function pkgToRecipeUnits(pkgSize, pkgUnit, recipeUnit){
-  const size=Number(pkgSize)||0;
-  const pIsW=pkgUnit in G, pIsV=pkgUnit in ML;
-  const rIsW=recipeUnit in G, rIsV=recipeUnit in ML;
-  if(recipeUnit==='each'||pkgUnit==='each') return size; // count-based, no conversion
-  // to base of package
-  let grams=null, ml=null;
-  if(pIsW) grams=size*G[pkgUnit];
-  if(pIsV) ml=size*ML[pkgUnit];
-  // cross domains via density if needed
-  if(rIsW){ if(grams==null && ml!=null) grams=ml*OIL_DENSITY; return grams/G[recipeUnit]; }
-  if(rIsV){ if(ml==null && grams!=null) ml=grams/OIL_DENSITY; return ml/ML[recipeUnit]; }
-  return size;
-}
-// per-unit cost of one purchase, in recipe units
-function purchaseCostPerUnit(p, ing){
-  const units=pkgToRecipeUnits(p.pkg_size,p.pkg_unit,ing.unit);
-  if(!units) return 0;
-  return (Number(p.price_paid)||0)/units;
-}
-// last-5 average + buffer, with highest-ever as reference
-function ingCosting(ing){
-  const ps=PUR.filter(p=>p.ingredient_id===ing.id)
-    .sort((a,b)=>(b.bought_on||'').localeCompare(a.bought_on||''));
-  if(!ps.length) return {avg:0,buffered:0,highest:0,n:0};
-  const perUnit=ps.map(p=>purchaseCostPerUnit(p,ing));
-  const last5=perUnit.slice(0,5);
-  const avg=last5.reduce((a,b)=>a+b,0)/last5.length;
-  const highest=Math.max(...perUnit);
-  const buf=(Number(ing.buffer_pct)||0)/100;
-  return {avg, buffered:avg*(1+buf), highest, n:ps.length};
-}
+// ---- unit conversion (purchases -> recipe unit) ----
+const G={oz:28.3495,lb:453.592,g:1,kg:1000}, ML={fl_oz:29.5735,ml:1,l:1000,gallon:3785.41}, OIL_D=0.91;
+function pkgToRecipeUnits(sz,pu,ru){sz=num(sz,0);const pW=pu in G,pV=pu in ML,rW=ru in G,rV=ru in ML;
+  if(ru==='each'||pu==='each')return sz;let g=null,ml=null;if(pW)g=sz*G[pu];if(pV)ml=sz*ML[pu];
+  if(rW){if(g==null&&ml!=null)g=ml*OIL_D;return g/G[ru];}if(rV){if(ml==null&&g!=null)ml=g/OIL_D;return ml/ML[ru];}return sz;}
 
-// ---------- STOCK (derived: purchased - consumed) ----------
-// oz of this ingredient purchased in total (converted to recipe unit)
-function ingPurchasedUnits(ing){
-  return PUR.filter(p=>p.ingredient_id===ing.id)
-    .reduce((a,p)=>a+pkgToRecipeUnits(p.pkg_size,p.pkg_unit,ing.unit),0);
-}
-// oz consumed across all logged batches whose recipe uses this ingredient
-function ingConsumedUnits(ing){
-  let used=0;
-  BAT.forEach(b=>{
-    const rec=REC.find(r=>r.id===b.recipe_id); if(!rec) return;
-    const line=(rec.ingredients||[]).find(l=>l.ingredient_id===ing.id); if(!line) return;
-    const bars=Number(b.bars_made)||0, recBars=Number(rec.bars_per_batch)||1;
-    // scale the recipe's per-batch qty to how many bars were actually made
-    used += (Number(line.qty)||0) * (bars/recBars);
-  });
-  return used;
-}
-// avg qty this ingredient uses per single batch, across recipes that include it
-function ingPerBatchUse(ing){
-  const lines=REC.map(r=>(r.ingredients||[]).find(l=>l.ingredient_id===ing.id)).filter(Boolean);
-  if(!lines.length) return 0;
-  return lines.reduce((a,l)=>a+(Number(l.qty)||0),0)/lines.length;
-}
-function ingStock(ing){
-  const purchased=ingPurchasedUnits(ing);
-  const consumed=ingConsumedUnits(ing);
-  const onHand=purchased-consumed;
-  const perBatch=ingPerBatchUse(ing);
-  const batchesLeft=perBatch>0?onHand/perBatch:null;
-  const low=perBatch>0 && onHand<perBatch; // less than one batch's worth
-  return {purchased,consumed,onHand,perBatch,batchesLeft,low};
-}
-
-// ---------- COST MATH ----------
+// ---- costing (last-5 avg + buffer) ----
 function ingById(id){return ING.find(x=>x.id===id);}
-function recipeBatchCost(rec){
-  let c=0;
-  (rec.ingredients||[]).forEach(line=>{
-    const ing=ingById(line.ingredient_id);
-    if(ing) c += (Number(line.qty)||0)*ingCosting(ing).buffered;
-  });
-  return c;
-}
-function recipeBarCost(rec){ return recipeBatchCost(rec)/((Number(rec.bars_per_batch)||1)||1); }
-function priceAtMargin(cost,m){ m=(Number(m)||0)/100; return m>=1?0:cost/(1-m); }
+function ingByName(n){return ING.find(x=>x.name===n);}
+function purchaseCostPerUnit(p,ing){const u=pkgToRecipeUnits(p.pkg_size,p.pkg_unit,ing.unit||'g');return u?(num(p.price_paid)/u):0;}
+function ingCosting(ing){const ps=PUR.filter(p=>p.ingredient_id===ing.id).sort((a,b)=>(b.bought_on||'').localeCompare(a.bought_on||''));
+  if(!ps.length)return{avg:0,buffered:0,highest:0,n:0};const pu=ps.map(p=>purchaseCostPerUnit(p,ing));
+  const last5=pu.slice(0,5);const avg=last5.reduce((a,b)=>a+b,0)/last5.length;const buf=num(ing.buffer_pct)/100;
+  return{avg,buffered:avg*(1+buf),highest:Math.max(...pu),n:ps.length};}
+function costPerG(ing){ if(!ing) return 0; return ingCosting(ing).buffered; } // assumes unit g for soap math
 
-// ---------- AUTH ----------
-async function init(){ const {data:{session}}=await sb.auth.getSession(); if(session) showApp(session); else $('#login').style.display='flex'; }
-$('#loginBtn').onclick=async()=>{ const email=$('#email').value.trim(),password=$('#pass').value; $('#loginErr').textContent='';
-  const {data,error}=await sb.auth.signInWithPassword({email,password}); if(error){$('#loginErr').textContent=error.message;return;} showApp(data.session); };
+// ---- FORMULATION ENGINE (ported from FormulationDock) ----
+// recipe.ingredients = [{ingredient_id, mode:'pct'|'tsp'|'tbsp'|'mark', pct, amt}]
+// base = total oil weight (from mold.total_oil_g)
+function computeFormula(recipe, mold, extraLines){
+  const base = mold ? num(mold.total_oil_g,1000) : 1000;
+  const lines = (recipe.ingredients||[]).concat(extraLines||[])
+    .map(l=>({mode:l.mode||'pct',pct:num(l.pct,0),amt:num(l.amt,0),ing:ingById(l.ingredient_id)})).filter(l=>l.ing);
+  let rows=[],totalCost=0,oilPctSum=0,naohRaw=0,warnings=[];
+  const oilLines=lines.filter(l=>l.ing.category==='oil'&&l.mode==='pct');
+  const other=lines.filter(l=>!(l.ing.category==='oil'&&l.mode==='pct'));
+  oilPctSum=oilLines.reduce((s,l)=>s+l.pct,0);
+  if(oilLines.length && Math.abs(oilPctSum-100)>0.1) warnings.push('Oils total '+(Math.round(oilPctSum*10)/10)+'% — should be 100%');
+  oilLines.forEach(l=>{const g=l.pct/100*base;naohRaw+=g*num(l.ing.sap_naoh,0);const c=g*costPerG(l.ing);totalCost+=c;
+    rows.push({name:l.ing.name,cat:'oil',mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g',cost:c});});
+  const sf=num(recipe.superfat,5);
+  const lyeType=recipe.lye_type==='KOH'?'KOH':'NaOH';
+  let lyeG=naohRaw*(1-sf/100); if(lyeType==='KOH') lyeG=lyeG*1.4025/0.90;
+  totalCost += lyeG*costPerG(ingByName(lyeType==='KOH'?'Potassium Hydroxide (KOH)':'Sodium Hydroxide (NaOH)'));
+  let waterG;const method=recipe.water_method||'conc';
+  if(method==='conc'){const conc=num(recipe.lye_conc,33)||33;const disc=num(recipe.water_disc,0);waterG=lyeG*((100-conc)/conc)*(1-disc/100);}
+  else{waterG=num(recipe.water_pct,33)/100*base;}
+  totalCost += waterG*costPerG(ingByName('Distilled Water'));
+  // additives
+  other.forEach(l=>{
+    if(l.mode==='mark'){rows.push({name:l.ing.name,cat:l.ing.category,mode:'mark',disp:'✓',g:0,cost:0});return;}
+    if(l.mode==='tsp'||l.mode==='tbsp'){rows.push({name:l.ing.name,cat:l.ing.category,mode:l.mode,disp:l.amt+' '+(l.mode==='tsp'?'tsp':'Tbsp'),g:0,cost:0});return;}
+    const g=l.pct/100*base;const c=g*costPerG(l.ing);totalCost+=c;
+    rows.push({name:l.ing.name,cat:l.ing.category,mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g',cost:c});
+  });
+  const conc=(lyeG+waterG)>0?lyeG/(lyeG+waterG)*100:0;
+  const bars=mold?num(mold.bars,10):10;
+  return {base,rows,lyeG,lyeType,waterG,conc,sf,totalCost,bars,costPerBar:bars>0?totalCost/bars:0,oilPctSum,warnings,
+    oilLines:oilLines.map(l=>({ingredient_id:l.ing.id,name:l.ing.name,g:l.pct/100*base}))};
+}
+
+// ---- AUTH ----
+async function init(){const{data:{session}}=await sb.auth.getSession();if(session)showApp(session);else $('#login').style.display='flex';}
+$('#loginBtn').onclick=async()=>{const email=$('#email').value.trim(),password=$('#pass').value;$('#loginErr').textContent='';
+  const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){$('#loginErr').textContent=error.message;return;}showApp(data.session);};
 $('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
 $('#logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
-function showApp(session){ $('#login').style.display='none'; $('#app').style.display='block'; $('#whoEmail').textContent=session.user.email; loadAll(); subscribe(); }
+function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;loadAll();subscribe();}
 
 async function loadAll(){
-  const [i,r,b,p]=await Promise.all([
+  const [i,r,b,p,m]=await Promise.all([
     sb.from('ingredients').select('*').order('name'),
     sb.from('recipes').select('*').order('name'),
     sb.from('batches').select('*').order('made_on',{ascending:false}),
-    sb.from('purchases').select('*').order('bought_on',{ascending:false})
+    sb.from('purchases').select('*').order('bought_on',{ascending:false}),
+    sb.from('molds').select('*').order('total_oil_g',{ascending:false})
   ]);
-  ING=i.data||[]; REC=r.data||[]; BAT=b.data||[]; PUR=p.data||[];
+  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];
   renderAll();
 }
-function subscribe(){ sb.channel('soapdock').on('postgres_changes',{event:'*',schema:'public'},()=>loadAll())
-  .subscribe(st=>{const e=$('#syncState'); if(st==='SUBSCRIBED'){e.textContent='live';e.classList.add('live');}else{e.textContent='offline';e.classList.remove('live');}}); }
+function subscribe(){sb.channel('soapdock').on('postgres_changes',{event:'*',schema:'public'},()=>loadAll())
+  .subscribe(st=>{const e=$('#syncState');if(st==='SUBSCRIBED'){e.textContent='live';e.classList.add('live');}else{e.textContent='offline';e.classList.remove('live');}});}
 
-// ---------- RENDER ----------
-function renderAll(){ renderDash(); renderIngredients(); renderRecipes(); renderBatches(); renderPriceRecipes(); if(openIng) renderIngDetail(); }
+// ---- INVENTORY (purchased - consumed by batches) ----
+function ingPurchased(ing){return PUR.filter(p=>p.ingredient_id===ing.id).reduce((a,p)=>a+pkgToRecipeUnits(p.pkg_size,p.pkg_unit,ing.unit||'g'),0);}
+function ingConsumed(ing){let u=0;BAT.forEach(b=>{const c=b.computed;if(!c)return;
+  (c.oils||[]).forEach(o=>{if(o.ingredient_id===ing.id)u+=num(o.g);});
+  if(c.lye_ing===ing.id)u+=num(c.lye_g);if(c.water_ing===ing.id)u+=num(c.water_g);});return u;}
+function ingStock(ing){const purchased=ingPurchased(ing),consumed=ingConsumed(ing);return{purchased,consumed,onHand:purchased-consumed};}
+
+// ---- RENDER ALL ----
+function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPricing();if(openIng)renderIngDetail();}
 
 function renderDash(){
-  $('#s-batches').textContent=BAT.length;
-  $('#s-recipes').textContent=REC.length;
-  $('#s-bars').textContent=BAT.reduce((a,b)=>a+(Number(b.bars_made)||0),0);
-  $('#s-spend').textContent=money(PUR.reduce((a,p)=>a+(Number(p.price_paid)||0),0));
-  const rows=BAT.slice(0,8);
-  $('#dashEmpty').style.display=rows.length?'none':'block';
-  $('#dashBatches').innerHTML=rows.map(b=>{const rec=REC.find(r=>r.id===b.recipe_id);const bc=rec?recipeBarCost(rec):'';
-    return `<tr><td class="mono">${b.made_on}</td><td>${esc(b.recipe_name)}</td><td class="dim">${esc(b.logged_by||'')}</td><td class="num">${b.bars_made}</td><td class="num">${bc!==''?money(bc):'—'}</td></tr>`;}).join('');
+  $('#s-batches').textContent=BAT.length;$('#s-recipes').textContent=REC.length;
+  $('#s-bars').textContent=BAT.reduce((a,b)=>a+num(b.bars_made),0);
+  $('#s-spend').textContent=money(PUR.reduce((a,p)=>a+num(p.price_paid),0));
+  const rows=BAT.slice(0,8);$('#dashEmpty').style.display=rows.length?'none':'block';
+  $('#dashBatches').innerHTML=rows.map(b=>{const m=MOLD.find(x=>x.id===b.mold_id);const cb=b.computed?num(b.computed.cost_per_bar):0;
+    return `<tr><td class="mono">${b.made_on}</td><td>${esc(b.recipe_name)}</td><td class="dim">${esc(b.snapshot?b.snapshot.name:'')}</td><td class="dim">${m?esc(m.name):'—'}</td><td class="num">${b.bars_made}</td><td class="num">${cb?money(cb):'—'}</td></tr>`;}).join('');
 }
 
-function renderIngredients(){
-  $('#ingEmpty').style.display=ING.length?'none':'block';
-  $('#ingRows').innerHTML=ING.map(i=>{const c=ingCosting(i);const u=UNIT_LBL[i.unit]||i.unit;const s=ingStock(i);
-    const onHandTxt=`${s.onHand.toFixed(1)} ${u}`;
-    const lowTag=s.low?' <span class="pill" style="color:var(--bad);border-color:var(--bad)">LOW</span>':'';
-    const batchesTxt=s.batchesLeft==null?'—':(s.batchesLeft<0?'0':s.batchesLeft.toFixed(1));
-    return `<tr><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="openIngredient('${i.id}')">${esc(i.name)}</a></td>
-    <td class="dim mono">${u}</td>
-    <td class="num">${c.n?money4(c.buffered)+'/'+u:'—'}</td>
-    <td class="num" style="${s.low?'color:var(--bad)':''}">${onHandTxt}${lowTag}</td>
-    <td class="num" style="${s.low?'color:var(--bad)':''}">${batchesTxt}</td>
-    <td class="num"><button class="btn ghost sm" onclick="editIng('${i.id}')">edit</button> <button class="btn danger sm" onclick="delIng('${i.id}')">×</button></td></tr>`;}).join('');
+// ---- MAKE A BATCH ----
+function fillRecipeSelect(sel){sel.innerHTML='<option value="">— pick recipe —</option>'+REC.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');}
+function fillMoldSelect(sel,selId){sel.innerHTML=MOLD.map(m=>`<option value="${m.id}" ${m.id===selId?'selected':''}>${esc(m.name)} (${m.total_oil_g}g · ${m.bars} bars)</option>`).join('');}
+function renderMake(){
+  const curR=$('#mkRecipe').value;fillRecipeSelect($('#mkRecipe'));if(curR)$('#mkRecipe').value=curR;
+  const curM=$('#mkMold').value;fillMoldSelect($('#mkMold'));if(curM)$('#mkMold').value=curM;
+  if(!$('#mkDate').value)$('#mkDate').value=new Date().toISOString().slice(0,10);
+  refreshMake();
+}
+let mkOverrideLines=[];
+$('#mkRecipe').onchange=()=>{const r=REC.find(x=>x.id===$('#mkRecipe').value);if(r&&r.default_mold_id){$('#mkMold').value=r.default_mold_id;}refreshMake();};
+$('#mkMold').onchange=refreshMake;
+function refreshMake(){
+  const r=REC.find(x=>x.id===$('#mkRecipe').value);const m=MOLD.find(x=>x.id===$('#mkMold').value);
+  if(!r||!m){$('#mkReadout').innerHTML='<div class="empty">Pick a recipe and mold.</div>';$('#mkSheet').style.display='none';return;}
+  const f=computeFormula(r,m,mkOverrideLines);
+  $('#mkReadout').innerHTML=readoutHTML(f,r,m);
+  $('#mkSheet').style.display='block';
+  if(!$('#mkBars').value)$('#mkBars').value=m.bars;
+  renderOverrides();
+}
+function renderOverrides(){
+  $('#mkOverrides').innerHTML='';
+  mkOverrideLines.forEach((l,idx)=>addOverrideRow(l,idx));
+}
+function addOverrideRow(line,idx){
+  const div=document.createElement('div');div.className='lineitem';
+  const opts=ING.map(i=>`<option value="${i.id}" ${i.id===line.ingredient_id?'selected':''}>${esc(i.name)}</option>`).join('');
+  div.innerHTML=`<select>${opts}</select>
+    <select class="mode"><option value="pct" ${line.mode==='pct'?'selected':''}>%</option><option value="tsp" ${line.mode==='tsp'?'selected':''}>tsp</option><option value="tbsp" ${line.mode==='tbsp'?'selected':''}>Tbsp</option><option value="mark" ${line.mode==='mark'?'selected':''}>✓</option></select>
+    <input type="number" step="0.1" placeholder="amt" value="${line.mode==='mark'?'':(line.mode==='pct'?(line.pct||''):(line.amt||''))}">
+    <button class="x">×</button>`;
+  const [sel,modeSel,amt,x]=[div.querySelector('select'),div.querySelector('.mode'),div.querySelector('input'),div.querySelector('.x')];
+  const upd=()=>{line.ingredient_id=sel.value;line.mode=modeSel.value;if(line.mode==='pct')line.pct=num(amt.value);else line.amt=num(amt.value);amt.style.display=line.mode==='mark'?'none':'block';refreshMakeReadoutOnly();};
+  sel.onchange=upd;modeSel.onchange=upd;amt.oninput=()=>{if(line.mode==='pct')line.pct=num(amt.value);else line.amt=num(amt.value);refreshMakeReadoutOnly();};
+  x.onclick=()=>{mkOverrideLines.splice(idx,1);renderOverrides();refreshMakeReadoutOnly();};
+  $('#mkOverrides').appendChild(div);
+}
+function refreshMakeReadoutOnly(){const r=REC.find(x=>x.id===$('#mkRecipe').value);const m=MOLD.find(x=>x.id===$('#mkMold').value);
+  if(r&&m){const f=computeFormula(r,m,mkOverrideLines);$('#mkReadout').innerHTML=readoutHTML(f,r,m);}}
+$('#mkAddOverride').onclick=()=>{if(!ING.length){toast('Add ingredients first');return;}mkOverrideLines.push({ingredient_id:ING[0].id,mode:'pct',pct:0,amt:0});renderOverrides();};
+
+function readoutHTML(f,r,m){
+  const rowsHtml=f.rows.map(x=>`<tr><td><span class="catdot" style="background:${CAT_COLOR[x.cat]||'var(--dim)'}"></span>${esc(x.name)}</td><td class="num dim">${x.mode==='pct'&&x.pct?x.pct+'%':''}</td><td class="num">${x.disp}</td><td class="num dim">${x.cost?money(x.cost):''}</td></tr>`).join('');
+  return `<div class="readout">
+    <div class="costline"><span class="k">Mold</span> <b>${esc(m.name)}</b> · ${m.total_oil_g} g oils · ${m.bars} bars</div>
+    <div class="costline">
+      <span><span class="k">Lye (${f.lyeType}, ${f.sf}% SF)</span> <b>${f.lyeG.toFixed(1)} g</b></span>
+      <span><span class="k">Water</span> <b>${f.waterG.toFixed(1)} g</b></span>
+      <span><span class="k">Conc</span> <b>${Math.round(f.conc)}%</b></span>
+    </div>
+    <div class="costline">
+      <span><span class="k">Batch cost</span> <b>${money(f.totalCost)}</b></span>
+      <span><span class="k">Cost / bar</span> <span class="use">${money(f.costPerBar)}</span></span>
+    </div>
+    <table style="margin-top:10px"><thead><tr><th>Ingredient</th><th class="num">%</th><th class="num">Amount</th><th class="num">Cost</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    ${f.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')}
+  </div>`;
 }
 
-function renderRecipes(){
-  $('#recipeEmpty').style.display=REC.length?'none':'block';
-  $('#recipeRows').innerHTML=REC.map(r=>{const src=r.source==='formulationdock'?'<span class="pill fd">FormulationDock</span>':'<span class="pill sd">SoapDock</span>';
-    return `<tr><td>${esc(r.name)}</td><td>${src}</td><td class="num">${r.bars_per_batch}</td><td class="num">${money(recipeBarCost(r))}</td>
-    <td class="num"><button class="btn ghost sm" onclick="editRec('${r.id}')">edit</button> <button class="btn danger sm" onclick="delRec('${r.id}')">×</button></td></tr>`;}).join('');
-}
+$('#mkSave').onclick=async()=>{
+  const r=REC.find(x=>x.id===$('#mkRecipe').value);const m=MOLD.find(x=>x.id===$('#mkMold').value);
+  if(!r||!m){toast('Pick recipe and mold');return;}
+  const f=computeFormula(r,m,mkOverrideLines);
+  const lyeIng=ingByName(f.lyeType==='KOH'?'Potassium Hydroxide (KOH)':'Sodium Hydroxide (NaOH)');
+  const waterIng=ingByName('Distilled Water');
+  const computed={oils:f.oilLines,lye_g:f.lyeG,lye_ing:lyeIng?lyeIng.id:null,water_g:f.waterG,water_ing:waterIng?waterIng.id:null,
+    total_cost:f.totalCost,cost_per_bar:f.costPerBar};
+  const rec={
+    recipe_id:r.id, recipe_name:r.name, mold_id:m.id,
+    bars_made:num($('#mkBars').value)||m.bars, made_on:$('#mkDate').value,
+    snapshot:{name:r.name,superfat:r.superfat,lye_type:r.lye_type,water_method:r.water_method,lye_conc:r.lye_conc,water_disc:r.water_disc,water_pct:r.water_pct,ingredients:r.ingredients},
+    overrides:mkOverrideLines, computed,
+    fragrance_name:$('#mkFragName').value, fragrance_manuf:$('#mkFragManuf').value,
+    topping:$('#mkTopping').value, appearance:$('#mkAppearance').value,
+    scent_top:$('#mkScentTop').value, scent_mid:$('#mkScentMid').value, scent_base:$('#mkScentBase').value,
+    earliest_ready:$('#mkReady').value||null, ph_result:$('#mkPh').value, ph_date:$('#mkPhDate').value||null,
+    superfat:f.sf, notes_craft:$('#mkNotes').value, logged_by:$('#whoEmail').textContent
+  };
+  const {error}=await sb.from('batches').insert(rec);
+  if(error){toast('Error: '+error.message);return;}
+  // reset
+  mkOverrideLines=[];['mkFragName','mkFragManuf','mkTopping','mkAppearance','mkScentTop','mkScentMid','mkScentBase','mkPh','mkNotes'].forEach(id=>$('#'+id).value='');
+  $('#mkBars').value='';toast('Batch logged!');loadAll();
+};
 
+// ---- BATCH HISTORY ----
 function renderBatches(){
   $('#batchEmpty').style.display=BAT.length?'none':'block';
-  $('#batchRows').innerHTML=BAT.map(b=>{const rec=REC.find(r=>r.id===b.recipe_id);const bcst=rec?recipeBatchCost(rec):null;const bc=rec?recipeBarCost(rec):null;
-    return `<tr><td class="mono">${b.made_on}</td><td>${esc(b.recipe_name)}</td><td class="dim">${esc(b.logged_by||'')}</td>
-    <td class="num">${b.bars_made}</td><td class="num">${bcst!=null?money(bcst):'—'}</td><td class="num">${bc!=null?money(bc):'—'}</td>
+  $('#batchRows').innerHTML=BAT.map(b=>{const m=MOLD.find(x=>x.id===b.mold_id);const cb=b.computed?num(b.computed.cost_per_bar):0;
+    return `<tr><td class="mono">${b.made_on}</td><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="openBatch('${b.id}')">${esc(b.recipe_name)}</a></td>
+    <td class="dim">${esc(b.snapshot?b.snapshot.name:'')}</td><td class="dim">${m?esc(m.name):'—'}</td>
+    <td class="num">${b.bars_made}</td><td class="num">${cb?money(cb):'—'}</td>
     <td class="num"><button class="btn danger sm" onclick="delBatch('${b.id}')">×</button></td></tr>`;}).join('');
 }
-
-function renderPriceRecipes(){
-  const sel=$('#priceRecipe');const cur=sel.value;
-  sel.innerHTML=REC.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');
-  if(cur)sel.value=cur; renderPrice();
-}
-function renderPrice(){
-  const rec=REC.find(r=>r.id===$('#priceRecipe').value);
-  if(!rec){$('#priceResult').innerHTML='<div class="empty">No recipe selected.</div>';return;}
-  const barCost=recipeBarCost(rec),batchCost=recipeBatchCost(rec),bars=Number(rec.bars_per_batch)||1;
-  const margins=$('#priceMargins').value.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
-  const boxes=margins.map(m=>{const pb=priceAtMargin(barCost,m);return `<div class="margin-box"><div class="pct">${m}% margin</div><div class="price">${money(pb)}</div><div class="sub">per bar · batch ${money(pb*bars)}</div></div>`;}).join('');
-  $('#priceResult').innerHTML=`<div class="row" style="margin:8px 0 4px">
-    <div class="stat"><div class="v">${money(barCost)}</div><div class="l">Cost / bar</div></div>
-    <div class="stat"><div class="v">${money(batchCost)}</div><div class="l">Cost / batch (${bars} bars)</div></div></div>
-    <div class="margin-grid">${boxes}</div>
-    <p class="dim mono" style="font-size:11px;margin-top:14px">Margin = profit ÷ selling price.  price = cost ÷ (1 − margin). Ingredient costs use last-5-avg + buffer.</p>`;
-}
-$('#priceRecipe').onchange=renderPrice; $('#priceMargins').oninput=renderPrice;
-
-// ---------- INGREDIENT DETAIL / PURCHASES ----------
-window.openIngredient=id=>{ openIng=id; $('#ingListWrap').style.display='none'; $('#ingDetailWrap').style.display='block';
-  $('#pDate').value=new Date().toISOString().slice(0,10); renderIngDetail(); };
-$('#ingBack').onclick=()=>{ openIng=null; $('#ingDetailWrap').style.display='none'; $('#ingListWrap').style.display='block'; };
-function renderIngDetail(){
-  const ing=ingById(openIng); if(!ing){$('#ingBack').click();return;}
-  const u=UNIT_LBL[ing.unit]||ing.unit; const c=ingCosting(ing);
-  $('#ingDetailName').textContent=ing.name+' · '+u;
-  $('#ingDetailCost').innerHTML=c.n?`<div class="costline">
-    <span><span class="k">last-5 avg</span> ${money4(c.avg)}/${u}</span>
-    <span><span class="k">+${ing.buffer_pct||0}% buffer →</span> <span class="use">${money4(c.buffered)}/${u}</span></span>
-    <span><span class="k">highest ever</span> <span class="hi">${money4(c.highest)}/${u}</span></span>
-    <span class="k">${c.n} purchase${c.n>1?'s':''}</span></div>
-    ${c.buffered<c.highest?'<p class="dim mono" style="font-size:11px;margin-top:6px;color:var(--warn)">Note: buffered cost is below your highest-ever price — consider raising the buffer if you want full worst-case protection.</p>':''}`
-    :'<p class="dim mono" style="font-size:12px">No purchases yet — add one below to derive cost.</p>';
-  const ps=PUR.filter(p=>p.ingredient_id===ing.id);
-  // stock summary line
-  const s=ingStock(ing);
-  const stockHtml=`<div class="costline" style="margin-top:10px">
-    <span><span class="k">purchased</span> ${s.purchased.toFixed(1)} ${u}</span>
-    <span><span class="k">used by batches</span> ${s.consumed.toFixed(1)} ${u}</span>
-    <span><span class="k">on hand →</span> <span class="${s.low?'hi':'use'}">${s.onHand.toFixed(1)} ${u}</span></span>
-    ${s.batchesLeft!=null?`<span><span class="k">batches left</span> ${(s.batchesLeft<0?0:s.batchesLeft).toFixed(1)}</span>`:''}
-    ${s.low?'<span class="hi">LOW STOCK</span>':''}</div>`;
-  $('#ingDetailCost').insertAdjacentHTML('beforeend', stockHtml);
-  $('#purchEmpty').style.display=ps.length?'none':'block';
-  $('#purchRows').innerHTML=ps.map(p=>{const cpu=purchaseCostPerUnit(p,ing);
-    return `<tr><td class="mono">${p.bought_on}</td><td>${esc(p.vendor||'—')}</td>
-    <td class="num">${p.pkg_size} ${UNIT_LBL[p.pkg_unit]||p.pkg_unit}</td>
-    <td class="num">${money(p.price_paid)}</td><td class="num">${money4(cpu)}/${u}</td>
-    <td class="num"><button class="btn danger sm" onclick="delPurch('${p.id}')">×</button></td></tr>`;}).join('');
-}
-$('#pSave').onclick=async()=>{
-  const ing=ingById(openIng); if(!ing)return;
-  const rec={ ingredient_id:openIng, vendor:$('#pVendor').value.trim(), bought_on:$('#pDate').value,
-    pkg_size:parseFloat($('#pSize').value)||0, pkg_unit:$('#pUnit').value, price_paid:parseFloat($('#pPrice').value)||0 };
-  if(!rec.pkg_size||!rec.price_paid){toast('Size and price required');return;}
-  const {error}=await sb.from('purchases').insert(rec); if(error){toast('Error: '+error.message);return;}
-  $('#pVendor').value='';$('#pSize').value='';$('#pPrice').value=''; toast('Purchase logged'); loadAll();
+window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.find(x=>x.id===b.mold_id);const c=b.computed||{};
+  $('#batchListWrap').style.display='none';$('#batchDetailWrap').style.display='block';
+  const oils=(c.oils||[]).map(o=>`<tr><td>${esc(o.name)}</td><td class="num">${num(o.g).toFixed(1)} g</td></tr>`).join('');
+  const ov=(b.overrides||[]).map(o=>{const ing=ingById(o.ingredient_id);return ing?`<li>${esc(ing.name)} — ${o.mode==='mark'?'✓':(o.mode==='pct'?o.pct+'%':o.amt+' '+o.mode)}</li>`:'';}).join('');
+  $('#batchDetail').innerHTML=`
+    <h2>${esc(b.recipe_name)} <span class="pill sd" style="margin-left:8px">${b.made_on}</span></h2>
+    <div class="costline"><span><span class="k">Recipe</span> <b>${esc(b.snapshot?b.snapshot.name:'')}</b></span><span><span class="k">Mold</span> <b>${m?esc(m.name):'—'}</b></span><span><span class="k">Bars made</span> <b>${b.bars_made}</b></span><span><span class="k">Cost/bar</span> <span class="use">${money(num(c.cost_per_bar))}</span></span></div>
+    <div class="row" style="margin-top:14px">
+      <div style="flex:1;min-width:240px"><h3>Oils</h3><table>${oils}</table>
+        <div class="costline" style="margin-top:8px"><span><span class="k">Lye</span> <b>${num(c.lye_g).toFixed(1)} g</b></span><span><span class="k">Water</span> <b>${num(c.water_g).toFixed(1)} g</b></span><span><span class="k">SF</span> <b>${b.superfat}%</b></span></div></div>
+      <div style="flex:1;min-width:240px">
+        <h3>This batch</h3>
+        <p class="mono" style="font-size:12px"><span class="dim">Fragrance:</span> ${esc(b.fragrance_name||'—')} ${b.fragrance_manuf?'('+esc(b.fragrance_manuf)+')':''}</p>
+        ${ov?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Swaps:</span></p><ul style="font-family:var(--mono);font-size:12px;margin-left:18px">${ov}</ul>`:''}
+        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Topping:</span> ${esc(b.topping||'—')}</p>
+        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Appearance:</span> ${esc(b.appearance||'—')}</p>
+        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Scent:</span> ${esc(b.scent_top||'')} / ${esc(b.scent_mid||'')} / ${esc(b.scent_base||'')}</p>
+        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">PH:</span> ${esc(b.ph_result||'—')} ${b.ph_date?'('+b.ph_date+')':''} &nbsp; <span class="dim">Ready:</span> ${b.earliest_ready||'—'}</p>
+        ${b.notes_craft?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Notes:</span> ${esc(b.notes_craft)}</p>`:''}
+      </div>
+    </div>`;
 };
-window.delPurch=async id=>{ if(!confirm('Delete this purchase?'))return; await sb.from('purchases').delete().eq('id',id); toast('Deleted'); loadAll(); };
+$('#batchBack').onclick=()=>{$('#batchDetailWrap').style.display='none';$('#batchListWrap').style.display='block';};
+window.delBatch=async id=>{if(!confirm('Delete this batch?'))return;await sb.from('batches').delete().eq('id',id);toast('Deleted');loadAll();};
 
-// ---------- INGREDIENT CRUD ----------
-let editingIng=null;
-$('#iSave').onclick=async()=>{
-  const rec={ name:$('#iName').value.trim(), unit:$('#iUnit').value, buffer_pct:parseFloat($('#iBuffer').value)||0, updated_at:new Date().toISOString() };
+// ---- RECIPES ----
+function recipeCostPerBar(r){const m=MOLD.find(x=>x.id===r.default_mold_id)||MOLD[0];if(!m)return 0;return computeFormula(r,m,[]).costPerBar;}
+function renderRecipes(){
+  $('#recipeEmpty').style.display=REC.length?'none':'block';
+  $('#recipeRows').innerHTML=REC.map(r=>{const m=MOLD.find(x=>x.id===r.default_mold_id);
+    return `<tr><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="editRecipe('${r.id}')">${esc(r.name)}</a></td>
+    <td class="dim">${esc(r.recipe_from||'')}</td><td class="dim">${m?esc(m.name):'—'}</td><td class="num">${r.superfat}</td>
+    <td class="num">${money(recipeCostPerBar(r))}</td>
+    <td class="num"><button class="btn danger sm" onclick="delRecipe('${r.id}')">×</button></td></tr>`;}).join('');
+}
+$('#newRecipe').onclick=()=>openRecipeEditor(null);
+$('#recipeBack').onclick=()=>{$('#recipeEditWrap').style.display='none';$('#recipeListWrap').style.display='block';};
+window.editRecipe=id=>openRecipeEditor(id);
+window.delRecipe=async id=>{if(!confirm('Delete this recipe?'))return;await sb.from('recipes').delete().eq('id',id);toast('Deleted');loadAll();};
+let reLines=[];
+function openRecipeEditor(id){
+  editRec=id;const r=id?REC.find(x=>x.id===id):null;
+  $('#recipeListWrap').style.display='none';$('#recipeEditWrap').style.display='block';
+  $('#recipeEditTitle').textContent=r?'Edit recipe':'New recipe';
+  $('#reName').value=r?r.name:'';$('#reFrom').value=r?(r.recipe_from||''):'';
+  $('#reSF').value=r?r.superfat:5;$('#reLyeType').value=r?r.lye_type:'NaOH';
+  $('#reWaterMethod').value=r?r.water_method:'conc';$('#reLyeConc').value=r?r.lye_conc:33;
+  $('#reWaterDisc').value=r?r.water_disc:0;$('#reWaterPct').value=r?r.water_pct:33;
+  fillMoldSelect($('#reMold'),r?r.default_mold_id:(MOLD[0]&&MOLD[0].id));
+  toggleWaterFields();
+  reLines=r&&r.ingredients?JSON.parse(JSON.stringify(r.ingredients)):[];
+  renderReLines();refreshReReadout();
+}
+function toggleWaterFields(){const c=$('#reWaterMethod').value==='conc';$('#reConcFields').style.display=c?'grid':'none';$('#rePctFields').style.display=c?'none':'grid';}
+$('#reWaterMethod').onchange=()=>{toggleWaterFields();refreshReReadout();};
+['reSF','reLyeType','reLyeConc','reWaterDisc','reWaterPct','reMold'].forEach(id=>$('#'+id).addEventListener('input',refreshReReadout));
+$('#reMold').addEventListener('change',refreshReReadout);
+function renderReLines(){$('#reLines').innerHTML='';reLines.forEach((l,i)=>addReLineRow(l,i));}
+function addReLineRow(line,idx){
+  const div=document.createElement('div');div.className='lineitem';
+  const opts=ING.map(i=>`<option value="${i.id}" ${i.id===line.ingredient_id?'selected':''}>${esc(i.name)}</option>`).join('');
+  div.innerHTML=`<select>${opts}</select>
+    <select class="mode"><option value="pct" ${line.mode==='pct'?'selected':''}>%</option><option value="tsp" ${line.mode==='tsp'?'selected':''}>tsp</option><option value="tbsp" ${line.mode==='tbsp'?'selected':''}>Tbsp</option><option value="mark" ${line.mode==='mark'?'selected':''}>✓</option></select>
+    <input type="number" step="0.1" placeholder="amt" value="${line.mode==='mark'?'':(line.mode==='pct'?(line.pct||''):(line.amt||''))}">
+    <button class="x">×</button>`;
+  const [sel,modeSel,amt,x]=[div.querySelector('select'),div.querySelector('.mode'),div.querySelector('input'),div.querySelector('.x')];
+  if(line.mode==='mark')amt.style.display='none';
+  const upd=()=>{line.ingredient_id=sel.value;line.mode=modeSel.value;if(line.mode==='pct')line.pct=num(amt.value);else line.amt=num(amt.value);amt.style.display=line.mode==='mark'?'none':'block';refreshReReadout();};
+  sel.onchange=upd;modeSel.onchange=upd;amt.oninput=()=>{if(line.mode==='pct')line.pct=num(amt.value);else line.amt=num(amt.value);refreshReReadout();};
+  x.onclick=()=>{reLines.splice(idx,1);renderReLines();refreshReReadout();};
+  $('#reLines').appendChild(div);
+}
+$('#reAddLine').onclick=()=>{if(!ING.length){toast('Add ingredients first');return;}reLines.push({ingredient_id:ING[0].id,mode:'pct',pct:0,amt:0});renderReLines();};
+function draftRecipe(){return{superfat:num($('#reSF').value,5),lye_type:$('#reLyeType').value,water_method:$('#reWaterMethod').value,
+  lye_conc:num($('#reLyeConc').value,33),water_disc:num($('#reWaterDisc').value,0),water_pct:num($('#reWaterPct').value,33),ingredients:reLines};}
+function refreshReReadout(){const m=MOLD.find(x=>x.id===$('#reMold').value)||MOLD[0];
+  if(!m||!reLines.length){$('#reReadout').innerHTML='<div class="empty">Add oils to see lye, water &amp; cost.</div>';return;}
+  const f=computeFormula(draftRecipe(),m,[]);$('#reReadout').innerHTML=readoutHTML(f,draftRecipe(),m);}
+$('#reSave').onclick=async()=>{
+  const name=$('#reName').value.trim();if(!name){toast('Name required');return;}
+  const rec={name,recipe_from:$('#reFrom').value,default_mold_id:$('#reMold').value||null,
+    superfat:num($('#reSF').value,5),lye_type:$('#reLyeType').value,water_method:$('#reWaterMethod').value,
+    lye_conc:num($('#reLyeConc').value,33),water_disc:num($('#reWaterDisc').value,0),water_pct:num($('#reWaterPct').value,33),
+    ingredients:reLines,source:'soapdock',updated_at:new Date().toISOString()};
+  let error;
+  if(editRec){({error}=await sb.from('recipes').update(rec).eq('id',editRec));}
+  else{({error}=await sb.from('recipes').insert(rec));}
+  if(error){toast('Error: '+error.message);return;}
+  toast('Recipe saved');$('#recipeBack').click();loadAll();
+};
+
+// ---- MOLDS ----
+let editMold=null;
+function renderMolds(){
+  $('#moldEmpty').style.display=MOLD.length?'none':'block';
+  $('#moldRows').innerHTML=MOLD.map(m=>`<tr><td>${esc(m.name)}</td><td class="num">${m.total_oil_g} g</td><td class="num">${m.bars}</td>
+    <td class="num"><button class="btn ghost sm" onclick="editMoldFn('${m.id}')">edit</button> <button class="btn danger sm" onclick="delMold('${m.id}')">×</button></td></tr>`).join('');
+}
+$('#moSave').onclick=async()=>{
+  const rec={name:$('#moName').value.trim(),total_oil_g:num($('#moOil').value,1000),bars:num($('#moBars').value,10)};
   if(!rec.name){toast('Name required');return;}
-  if(editingIng){ await sb.from('ingredients').update(rec).eq('id',editingIng); }
-  else { rec.cost_per_unit=0; rec.qty_on_hand=0; await sb.from('ingredients').insert(rec); }
-  clearIngForm(); toast('Ingredient saved'); loadAll();
+  let error;if(editMold){({error}=await sb.from('molds').update(rec).eq('id',editMold));}else{({error}=await sb.from('molds').insert(rec));}
+  if(error){toast('Error: '+error.message);return;}clearMoldForm();toast('Mold saved');loadAll();
 };
-window.editIng=id=>{const i=ingById(id);if(!i)return;editingIng=id;
-  $('#iName').value=i.name;$('#iUnit').value=i.unit;$('#iBuffer').value=i.buffer_pct!=null?i.buffer_pct:10;
-  $('#ingFormTitle').textContent='Edit ingredient';$('#iClear').style.display='inline-block';};
+window.editMoldFn=id=>{const m=MOLD.find(x=>x.id===id);if(!m)return;editMold=id;$('#moName').value=m.name;$('#moOil').value=m.total_oil_g;$('#moBars').value=m.bars;$('#moFormTitle').textContent='Edit mold';$('#moClear').style.display='inline-block';};
+window.delMold=async id=>{if(!confirm('Delete this mold?'))return;await sb.from('molds').delete().eq('id',id);toast('Deleted');loadAll();};
+$('#moClear').onclick=clearMoldForm;
+function clearMoldForm(){editMold=null;$('#moName').value='';$('#moOil').value='1000';$('#moBars').value='10';$('#moFormTitle').textContent='New mold';$('#moClear').style.display='none';}
+
+// ---- INGREDIENTS ----
+let editIng=null;
+$('#iCat').onchange=()=>{$('#iSapWrap').style.display=$('#iCat').value==='oil'?'block':'none';};
+function renderIngredients(){
+  $('#ingEmpty').style.display=ING.length?'none':'block';
+  $('#ingRows').innerHTML=ING.map(i=>{const c=ingCosting(i);const u=UNIT_LBL[i.unit]||i.unit||'g';const s=ingStock(i);
+    return `<tr><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="openIngredient('${i.id}')"><span class="catdot" style="background:${CAT_COLOR[i.category]||'var(--dim)'}"></span>${esc(i.name)}</a></td>
+    <td class="dim mono" style="font-size:11px">${i.category||''}</td>
+    <td class="num">${c.n?money4(c.buffered)+'/'+u:'—'}</td>
+    <td class="num">${s.onHand.toFixed(1)} ${u}</td>
+    <td class="num"><button class="btn ghost sm" onclick="editIngFn('${i.id}')">edit</button> <button class="btn danger sm" onclick="delIng('${i.id}')">×</button></td></tr>`;}).join('');
+}
+$('#iSave').onclick=async()=>{
+  const rec={name:$('#iName').value.trim(),category:$('#iCat').value,sap_naoh:num($('#iSap').value,0),unit:$('#iUnit').value,buffer_pct:num($('#iBuffer').value,10),updated_at:new Date().toISOString()};
+  if(!rec.name){toast('Name required');return;}
+  let error;if(editIng){({error}=await sb.from('ingredients').update(rec).eq('id',editIng));}else{rec.cost_per_unit=0;rec.qty_on_hand=0;({error}=await sb.from('ingredients').insert(rec));}
+  if(error){toast('Error: '+error.message);return;}clearIngForm();toast('Ingredient saved');loadAll();
+};
+window.editIngFn=id=>{const i=ingById(id);if(!i)return;editIng=id;$('#iName').value=i.name;$('#iCat').value=i.category||'oil';$('#iSap').value=i.sap_naoh||0;$('#iUnit').value=i.unit||'g';$('#iBuffer').value=i.buffer_pct!=null?i.buffer_pct:10;$('#iCat').onchange();$('#ingFormTitle').textContent='Edit ingredient';$('#iClear').style.display='inline-block';};
 window.delIng=async id=>{if(!confirm('Delete this ingredient and its purchases?'))return;await sb.from('ingredients').delete().eq('id',id);toast('Deleted');loadAll();};
 $('#iClear').onclick=clearIngForm;
-function clearIngForm(){editingIng=null;$('#iName').value='';$('#iUnit').value='oz';$('#iBuffer').value='10';$('#ingFormTitle').textContent='New ingredient';$('#iClear').style.display='none';}
+function clearIngForm(){editIng=null;$('#iName').value='';$('#iCat').value='oil';$('#iSap').value='0';$('#iUnit').value='g';$('#iBuffer').value='10';$('#iCat').onchange();$('#ingFormTitle').textContent='New ingredient';$('#iClear').style.display='none';}
 
-// ---------- RECIPE CRUD ----------
-let editingRec=null;
-function ingOptions(sel){return ING.map(i=>`<option value="${i.id}" ${i.id===sel?'selected':''}>${esc(i.name)} (${UNIT_LBL[i.unit]||i.unit})</option>`).join('');}
-function addIngLine(ingredient_id='',qty=''){const div=document.createElement('div');div.className='ingline';
-  div.innerHTML=`<select>${ingOptions(ingredient_id)}</select><input type="number" step="0.01" placeholder="qty" value="${qty}"><button class="x">×</button>`;
-  div.querySelector('.x').onclick=()=>div.remove();$('#rIngs').appendChild(div);}
-$('#rAddIng').onclick=()=>{if(!ING.length){toast('Add ingredients first');return;}addIngLine();};
-$('#rSave').onclick=async()=>{
-  const name=$('#rName').value.trim();if(!name){toast('Name required');return;}
-  const lines=[...$('#rIngs').querySelectorAll('.ingline')].map(d=>({ingredient_id:d.querySelector('select').value,qty:parseFloat(d.querySelector('input').value)||0})).filter(l=>l.ingredient_id&&l.qty>0);
-  const rec={name,bars_per_batch:parseFloat($('#rBars').value)||1,ingredients:lines,source:'soapdock',updated_at:new Date().toISOString()};
-  if(editingRec){await sb.from('recipes').update(rec).eq('id',editingRec);}else{await sb.from('recipes').insert(rec);}
-  clearRecForm();toast('Recipe saved');loadAll();
+window.openIngredient=id=>{openIng=id;$('#ingListWrap').style.display='none';$('#ingDetailWrap').style.display='block';$('#pDate').value=new Date().toISOString().slice(0,10);renderIngDetail();};
+$('#ingBack').onclick=()=>{openIng=null;$('#ingDetailWrap').style.display='none';$('#ingListWrap').style.display='block';};
+function renderIngDetail(){
+  const ing=ingById(openIng);if(!ing){$('#ingBack').click();return;}
+  const u=UNIT_LBL[ing.unit]||ing.unit||'g';const c=ingCosting(ing);const s=ingStock(ing);
+  $('#ingDetailName').textContent=ing.name+' · '+u;
+  let h=c.n?`<div class="costline"><span><span class="k">last-5 avg</span> ${money4(c.avg)}/${u}</span><span><span class="k">+${ing.buffer_pct||0}% →</span> <span class="use">${money4(c.buffered)}/${u}</span></span><span><span class="k">highest</span> <span class="hi">${money4(c.highest)}/${u}</span></span><span class="k">${c.n} purchase${c.n>1?'s':''}</span></div>`:'<p class="dim mono" style="font-size:12px">No purchases yet.</p>';
+  h+=`<div class="costline" style="margin-top:8px"><span><span class="k">purchased</span> ${s.purchased.toFixed(1)} ${u}</span><span><span class="k">used</span> ${s.consumed.toFixed(1)} ${u}</span><span><span class="k">on hand →</span> <span class="use">${s.onHand.toFixed(1)} ${u}</span></span></div>`;
+  $('#ingDetailCost').innerHTML=h;
+  const ps=PUR.filter(p=>p.ingredient_id===ing.id);$('#purchEmpty').style.display=ps.length?'none':'block';
+  $('#purchRows').innerHTML=ps.map(p=>{const cpu=purchaseCostPerUnit(p,ing);return `<tr><td class="mono">${p.bought_on}</td><td>${esc(p.vendor||'—')}</td><td class="num">${p.pkg_size} ${UNIT_LBL[p.pkg_unit]||p.pkg_unit}</td><td class="num">${money(p.price_paid)}</td><td class="num">${money4(cpu)}/${u}</td><td class="num"><button class="btn danger sm" onclick="delPurch('${p.id}')">×</button></td></tr>`;}).join('');
+}
+$('#pSave').onclick=async()=>{
+  const ing=ingById(openIng);if(!ing)return;
+  const rec={ingredient_id:openIng,vendor:$('#pVendor').value.trim(),bought_on:$('#pDate').value,pkg_size:num($('#pSize').value),pkg_unit:$('#pUnit').value,price_paid:num($('#pPrice').value)};
+  if(!rec.pkg_size||!rec.price_paid){toast('Size and price required');return;}
+  const{error}=await sb.from('purchases').insert(rec);if(error){toast('Error: '+error.message);return;}
+  $('#pVendor').value='';$('#pSize').value='';$('#pPrice').value='';toast('Purchase logged');loadAll();
 };
-window.editRec=id=>{const r=REC.find(x=>x.id===id);if(!r)return;editingRec=id;
-  $('#rName').value=r.name;$('#rBars').value=r.bars_per_batch;$('#rIngs').innerHTML='';
-  (r.ingredients||[]).forEach(l=>addIngLine(l.ingredient_id,l.qty));
-  $('#recipeFormTitle').textContent='Edit recipe';$('#rClear').style.display='inline-block';};
-window.delRec=async id=>{if(!confirm('Delete this recipe?'))return;await sb.from('recipes').delete().eq('id',id);toast('Deleted');loadAll();};
-$('#rClear').onclick=clearRecForm;
-function clearRecForm(){editingRec=null;$('#rName').value='';$('#rBars').value='10';$('#rIngs').innerHTML='';$('#recipeFormTitle').textContent='New recipe';$('#rClear').style.display='none';}
+window.delPurch=async id=>{if(!confirm('Delete this purchase?'))return;await sb.from('purchases').delete().eq('id',id);toast('Deleted');loadAll();};
 
-window.delBatch=async id=>{if(!confirm('Delete this batch?'))return;await sb.from('batches').delete().eq('id',id);toast('Deleted');loadAll();};
+// ---- PRICING ----
+function renderPricing(){
+  const cr=$('#prRecipe').value;fillRecipeSelect($('#prRecipe'));if(cr)$('#prRecipe').value=cr;
+  const cm=$('#prMold').value;fillMoldSelect($('#prMold'));if(cm)$('#prMold').value=cm;
+  renderPrice();
+}
+$('#prRecipe').onchange=()=>{const r=REC.find(x=>x.id===$('#prRecipe').value);if(r&&r.default_mold_id)$('#prMold').value=r.default_mold_id;renderPrice();};
+$('#prMold').onchange=renderPrice;$('#prMargins').oninput=renderPrice;
+function renderPrice(){
+  const r=REC.find(x=>x.id===$('#prRecipe').value);const m=MOLD.find(x=>x.id===$('#prMold').value);
+  if(!r||!m){$('#prResult').innerHTML='<div class="empty">Pick a recipe and mold.</div>';return;}
+  const f=computeFormula(r,m,[]);const margins=$('#prMargins').value.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
+  const boxes=margins.map(mg=>{const p=mg>=100?0:f.costPerBar/(1-mg/100);return `<div class="margin-box"><div class="pct">${mg}% margin</div><div class="price">${money(p)}</div><div class="sub">per bar · batch ${money(p*f.bars)}</div></div>`;}).join('');
+  $('#prResult').innerHTML=`<div class="row" style="margin:8px 0 4px"><div class="stat"><div class="v">${money(f.costPerBar)}</div><div class="l">Cost / bar</div></div><div class="stat"><div class="v">${money(f.totalCost)}</div><div class="l">Cost / batch (${f.bars} bars)</div></div></div><div class="margin-grid">${boxes}</div><p class="dim mono" style="font-size:11px;margin-top:14px">price = cost ÷ (1 − margin). Costs use last-5-avg + buffer per ingredient.</p>`;
+}
 
 $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');$$('.view').forEach(v=>v.classList.remove('on'));$('#v-'+b.dataset.v).classList.add('on');});
 
