@@ -60,6 +60,25 @@
   .micas{display:flex;flex-wrap:wrap;gap:10px}
   .mica-tag{background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:12px 16px;border-radius:24px;font-size:15px;cursor:pointer;font-family:var(--mono)}
   .mica-tag.on{background:var(--accent);color:#04110f;border-color:var(--accent);font-weight:600}
+  .mica-chips{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .mica-chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--accent);border-radius:24px;padding:8px 12px;font-family:var(--mono);font-size:14px}
+  .mica-chip img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+  .mica-chip .x{color:var(--bad);font-weight:700;padding:2px 4px;cursor:pointer;font-size:16px}
+  .mica-add{background:var(--bg);border:1px dashed var(--line);color:var(--dim);padding:11px 18px;border-radius:24px;font-size:14px;font-family:var(--mono);cursor:pointer}
+  .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:none;align-items:flex-end;justify-content:center}
+  .sheet-overlay.show{display:flex}
+  .pick-sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:80vh;display:flex;flex-direction:column}
+  .pick-top{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);font-family:var(--mono)}
+  .pick-search{padding:10px 16px;border-bottom:1px solid var(--line)}
+  .pick-search input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:12px;border-radius:8px;font-size:16px;font-family:var(--mono)}
+  .pick-list{overflow-y:auto;padding:6px 0;-webkit-overflow-scrolling:touch}
+  .mrow{display:flex;align-items:center;gap:14px;padding:12px 18px;cursor:pointer}
+  .mrow img,.mrow .ph{width:44px;height:44px;border-radius:9px;object-fit:cover;border:1px solid var(--line);flex:0 0 auto;background:var(--panel2)}
+  .mrow .nm{font-size:15px}
+  .mrow.on{background:var(--panel2)}
+  .mrow .chk{margin-left:auto;color:var(--accent);font-weight:700;font-size:18px;visibility:hidden}
+  .mrow.on .chk{visibility:visible}
+  .pick-done{margin:10px 16px calc(14px + env(safe-area-inset-bottom,0px));padding:15px;background:var(--accent);color:#04110f;border:none;border-radius:10px;font-weight:700;font-size:16px;cursor:pointer}
   nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--panel);border-top:1px solid var(--line);display:flex;padding:8px 8px env(safe-area-inset-bottom,8px)}
   nav.tabs button{flex:1;background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:12px;padding:10px 4px;cursor:pointer;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:4px}
   nav.tabs button .ic{font-size:22px;line-height:1}
@@ -124,7 +143,7 @@
           <div class="field"><label>Essential oil</label>
             <div class="fragrow"><select id="bEO"></select><input id="bEOOz" type="number" inputmode="decimal" step="0.01" placeholder="oz"></div>
           </div>
-          <div class="field"><label>Micas used (tap)</label><div class="micas" id="bMicas"></div></div>
+          <div class="field"><label>Micas used</label><div class="mica-chips" id="bMicaChips"></div></div>
         </div>
 
         <div class="card">
@@ -190,6 +209,15 @@
 </div>
 
 <div id="toast"></div>
+
+<div class="sheet-overlay" id="micaSheet" onclick="if(event.target===this)closeMicaPicker()">
+  <div class="pick-sheet">
+    <div class="pick-top"><b>Pick micas</b><span class="dim" id="micaCount"></span></div>
+    <div class="pick-search"><input id="micaSearch" placeholder="Search colors…" oninput="renderMicaList()"></div>
+    <div class="pick-list" id="micaList"></div>
+    <button type="button" class="pick-done" onclick="closeMicaPicker()">Done</button>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL  = "https://eureoeibnffqqupqynsl.supabase.co";
@@ -343,9 +371,28 @@ function fillAddins(){
   const frags=ADDIN.filter(a=>a.type==='fragrance'),eos=ADDIN.filter(a=>a.type==='eo'),micas=ADDIN.filter(a=>a.type==='mica');
   $('#bFrag').innerHTML='<option value="">— none —</option>'+frags.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
   $('#bEO').innerHTML='<option value="">— none —</option>'+eos.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
-  $('#bMicas').innerHTML=micas.length?micas.map(a=>`<button type="button" class="mica-tag" data-id="${a.id}" onclick="toggleMica('${a.id}',this)">${esc(a.name)}</button>`).join(''):'<span class="dim mono" style="font-size:13px">No micas in library yet.</span>';
+  renderMicaChips();
 }
-window.toggleMica=(id,btn)=>{const i=micaSel.indexOf(id);if(i>=0){micaSel.splice(i,1);btn.classList.remove('on');}else{micaSel.push(id);btn.classList.add('on');}refreshSheet();};
+function micaSwatch(m,cls){return m.image_url?`<img class="${cls||''}" src="${esc(m.image_url)}" loading="lazy" onerror="this.style.visibility='hidden'">`:(cls==='ph-ok'?'':`<span class="ph"></span>`);}
+function renderMicaChips(){
+  const micas=ADDIN.filter(a=>a.type==='mica');
+  const chips=micaSel.map(id=>{const m=micas.find(a=>a.id===id);if(!m)return'';
+    return `<span class="mica-chip">${m.image_url?`<img src="${esc(m.image_url)}" loading="lazy" onerror="this.style.display='none'">`:''}${esc(m.name)}<span class="x" onclick="removeMica('${m.id}')">×</span></span>`;}).join('');
+  $('#bMicaChips').innerHTML=chips+`<button type="button" class="mica-add" onclick="openMicaPicker()">+ Add mica</button>`;
+}
+window.removeMica=id=>{const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);renderMicaChips();refreshSheet();};
+window.openMicaPicker=()=>{$('#micaSearch').value='';renderMicaList();$('#micaSheet').classList.add('show');};
+window.closeMicaPicker=()=>{$('#micaSheet').classList.remove('show');};
+window.renderMicaList=()=>{
+  const q=($('#micaSearch').value||'').toLowerCase();
+  const micas=ADDIN.filter(a=>a.type==='mica'&&(!q||a.name.toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
+  $('#micaCount').textContent=micaSel.length?micaSel.length+' selected':'';
+  $('#micaList').innerHTML=micas.length?micas.map(m=>{
+    const on=micaSel.includes(m.id);
+    return `<div class="mrow${on?' on':''}" onclick="toggleMicaRow('${m.id}')">${micaSwatch(m)}<span class="nm">${esc(m.name)}</span><span class="chk">✓</span></div>`;
+  }).join(''):'<div class="dim mono" style="padding:18px;font-size:13px">No matches.</div>';
+};
+window.toggleMicaRow=id=>{const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);else micaSel.push(id);renderMicaChips();renderMicaList();refreshSheet();};
 
 $('#bFrag').addEventListener('change',()=>{const a=ADDIN.find(x=>x.id===$('#bFrag').value);
   if(a){if(a.note_top)$('#bScentTop').value=a.note_top;if(a.note_mid)$('#bScentMid').value=a.note_mid;if(a.note_base)$('#bScentBase').value=a.note_base;}refreshSheet();});
