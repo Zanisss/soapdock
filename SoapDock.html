@@ -185,7 +185,7 @@
         </div>
         <div class="card" style="flex:1.6;min-width:360px">
           <h2>Cost inventory</h2>
-          <table><thead><tr><th>Ingredient</th><th>Unit</th><th class="num">Costing cost</th><th class="num">On hand</th><th></th></tr></thead>
+          <table><thead><tr><th>Ingredient</th><th>Unit</th><th class="num">Costing cost</th><th class="num">On hand</th><th class="num">Batches left</th><th></th></tr></thead>
           <tbody id="ingRows"></tbody></table>
           <div class="empty" id="ingEmpty">No ingredients yet.</div>
         </div>
@@ -277,6 +277,40 @@ function ingCosting(ing){
   return {avg, buffered:avg*(1+buf), highest, n:ps.length};
 }
 
+// ---------- STOCK (derived: purchased - consumed) ----------
+// oz of this ingredient purchased in total (converted to recipe unit)
+function ingPurchasedUnits(ing){
+  return PUR.filter(p=>p.ingredient_id===ing.id)
+    .reduce((a,p)=>a+pkgToRecipeUnits(p.pkg_size,p.pkg_unit,ing.unit),0);
+}
+// oz consumed across all logged batches whose recipe uses this ingredient
+function ingConsumedUnits(ing){
+  let used=0;
+  BAT.forEach(b=>{
+    const rec=REC.find(r=>r.id===b.recipe_id); if(!rec) return;
+    const line=(rec.ingredients||[]).find(l=>l.ingredient_id===ing.id); if(!line) return;
+    const bars=Number(b.bars_made)||0, recBars=Number(rec.bars_per_batch)||1;
+    // scale the recipe's per-batch qty to how many bars were actually made
+    used += (Number(line.qty)||0) * (bars/recBars);
+  });
+  return used;
+}
+// avg qty this ingredient uses per single batch, across recipes that include it
+function ingPerBatchUse(ing){
+  const lines=REC.map(r=>(r.ingredients||[]).find(l=>l.ingredient_id===ing.id)).filter(Boolean);
+  if(!lines.length) return 0;
+  return lines.reduce((a,l)=>a+(Number(l.qty)||0),0)/lines.length;
+}
+function ingStock(ing){
+  const purchased=ingPurchasedUnits(ing);
+  const consumed=ingConsumedUnits(ing);
+  const onHand=purchased-consumed;
+  const perBatch=ingPerBatchUse(ing);
+  const batchesLeft=perBatch>0?onHand/perBatch:null;
+  const low=perBatch>0 && onHand<perBatch; // less than one batch's worth
+  return {purchased,consumed,onHand,perBatch,batchesLeft,low};
+}
+
 // ---------- COST MATH ----------
 function ingById(id){return ING.find(x=>x.id===id);}
 function recipeBatchCost(rec){
@@ -327,11 +361,15 @@ function renderDash(){
 
 function renderIngredients(){
   $('#ingEmpty').style.display=ING.length?'none':'block';
-  $('#ingRows').innerHTML=ING.map(i=>{const c=ingCosting(i);const u=UNIT_LBL[i.unit]||i.unit;
+  $('#ingRows').innerHTML=ING.map(i=>{const c=ingCosting(i);const u=UNIT_LBL[i.unit]||i.unit;const s=ingStock(i);
+    const onHandTxt=`${s.onHand.toFixed(1)} ${u}`;
+    const lowTag=s.low?' <span class="pill" style="color:var(--bad);border-color:var(--bad)">LOW</span>':'';
+    const batchesTxt=s.batchesLeft==null?'—':(s.batchesLeft<0?'0':s.batchesLeft.toFixed(1));
     return `<tr><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="openIngredient('${i.id}')">${esc(i.name)}</a></td>
     <td class="dim mono">${u}</td>
     <td class="num">${c.n?money4(c.buffered)+'/'+u:'—'}</td>
-    <td class="num">${i.qty_on_hand||0} ${u}</td>
+    <td class="num" style="${s.low?'color:var(--bad)':''}">${onHandTxt}${lowTag}</td>
+    <td class="num" style="${s.low?'color:var(--bad)':''}">${batchesTxt}</td>
     <td class="num"><button class="btn ghost sm" onclick="editIng('${i.id}')">edit</button> <button class="btn danger sm" onclick="delIng('${i.id}')">×</button></td></tr>`;}).join('');
 }
 
@@ -385,6 +423,15 @@ function renderIngDetail(){
     ${c.buffered<c.highest?'<p class="dim mono" style="font-size:11px;margin-top:6px;color:var(--warn)">Note: buffered cost is below your highest-ever price — consider raising the buffer if you want full worst-case protection.</p>':''}`
     :'<p class="dim mono" style="font-size:12px">No purchases yet — add one below to derive cost.</p>';
   const ps=PUR.filter(p=>p.ingredient_id===ing.id);
+  // stock summary line
+  const s=ingStock(ing);
+  const stockHtml=`<div class="costline" style="margin-top:10px">
+    <span><span class="k">purchased</span> ${s.purchased.toFixed(1)} ${u}</span>
+    <span><span class="k">used by batches</span> ${s.consumed.toFixed(1)} ${u}</span>
+    <span><span class="k">on hand →</span> <span class="${s.low?'hi':'use'}">${s.onHand.toFixed(1)} ${u}</span></span>
+    ${s.batchesLeft!=null?`<span><span class="k">batches left</span> ${(s.batchesLeft<0?0:s.batchesLeft).toFixed(1)}</span>`:''}
+    ${s.low?'<span class="hi">LOW STOCK</span>':''}</div>`;
+  $('#ingDetailCost').insertAdjacentHTML('beforeend', stockHtml);
   $('#purchEmpty').style.display=ps.length?'none':'block';
   $('#purchRows').innerHTML=ps.map(p=>{const cpu=purchaseCostPerUnit(p,ing);
     return `<tr><td class="mono">${p.bought_on}</td><td>${esc(p.vendor||'—')}</td>
