@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0048)file:///C:/Users/troyg/Downloads/SoapDock_4.html -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="en">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SoapDock</title>
-<script src="./SoapDock_files/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
   :root{
@@ -103,7 +103,7 @@
 </head>
 <body>
 
-<div id="login" style="display: flex;">
+<div id="login">
   <div class="box">
     <h1>Soap<b>Dock</b></h1>
     <div class="sub">black bow market · ops</div>
@@ -160,7 +160,7 @@
           <h3>This batch — swaps &amp; variables</h3>
           <p class="dim mono" style="font-size:11px;margin-bottom:10px">Oils &amp; lye come from the recipe. Change just what's different this run.</p>
           <div class="grid2">
-            <div class="field"><label>Fragrance name</label><input id="mkFragName" placeholder="Green Clover &amp; Aloe"></div>
+            <div class="field"><label>Fragrance name</label><input id="mkFragName" placeholder="Green Clover & Aloe"></div>
             <div class="field"><label>Fragrance manufacturer</label><input id="mkFragManuf" placeholder="NG"></div>
           </div>
           <label style="display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:8px">Override / add ingredients for this batch</label>
@@ -736,6 +736,5 @@ $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classLi
 
 init();
 </script>
-
-
-</body></html>
+</body>
+</html>
