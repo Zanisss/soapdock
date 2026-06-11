@@ -297,6 +297,30 @@ function ingCosting(ing){const ps=PUR.filter(p=>p.ingredient_id===ing.id).sort((
   return{buffered:avg*(1+buf)};}
 function costPerG(ing){ if(!ing) return 0; return ingCosting(ing).buffered; }
 
+
+// ---- soap bar qualities (SoapCalc model: weighted by oil %) ----
+const Q_KEYS=['hardness','cleansing','conditioning','bubbly','creamy','iodine','ins'];
+const Q_META={hardness:['Hardness',29,54],cleansing:['Cleansing',12,22],conditioning:['Conditioning',44,69],bubbly:['Bubbly',14,46],creamy:['Creamy',16,48],iodine:['Iodine',41,70],ins:['INS',136,165]};
+function computeQualities(oilLines){
+  const v={};Q_KEYS.forEach(k=>v[k]=0);const missing=[];let has=false;
+  oilLines.forEach(l=>{const q=l.ing&&l.ing.qualities;
+    if(q){has=true;Q_KEYS.forEach(k=>v[k]+=l.pct/100*num(q[k]));}
+    else if(l.ing)missing.push(l.ing.name);});
+  Q_KEYS.forEach(k=>v[k]=Math.round(v[k]));
+  return {vals:v,missing,has};
+}
+function qualitiesHTML(sq,compact){
+  if(!sq||!sq.has)return'';
+  const cells=Q_KEYS.map(k=>{const[label,lo,hi]=Q_META[k];const val=sq.vals[k];
+    const ok=val>=lo&&val<=hi;
+    return `<span style="display:inline-flex;flex-direction:column;align-items:center;background:var(--panel2,rgba(255,255,255,.03));border:1px solid ${ok?'var(--good)':'var(--warn)'};border-radius:10px;padding:${compact?'7px 10px':'8px 13px'};min-width:${compact?'62px':'74px'}">
+      <span style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim)">${label}</span>
+      <b style="font-size:${compact?'15px':'17px'};color:${ok?'var(--good)':'var(--warn)'}">${val}</b>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--dim)">${lo}–${hi}</span></span>`;}).join('');
+  const miss=sq.missing.length?`<div class="dim mono" style="font-size:11px;margin-top:6px">no quality data: ${sq.missing.map(esc).join(', ')}</div>`:'';
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${cells}</div>${miss}`;
+}
+
 function computeFormula(recipe, mold, extraLines){
   const base = mold ? num(mold.total_oil_g,1000) : 1000;
   const lines = (recipe.ingredients||[]).concat(extraLines||[])
@@ -324,7 +348,8 @@ function computeFormula(recipe, mold, extraLines){
   });
   const conc=(lyeG+waterG)>0?lyeG/(lyeG+waterG)*100:0;
   const bars=mold?num(mold.bars,10):10;
-  return {base,rows,lyeG,lyeType,waterG,conc,sf,totalCost,bars,costPerBar:bars>0?totalCost/bars:0,oilPctSum,warnings,
+  const soapQ=computeQualities(oilLines);
+  return {base,rows,lyeG,lyeType,waterG,conc,sf,totalCost,bars,costPerBar:bars>0?totalCost/bars:0,oilPctSum,warnings,soapQ,
     oilLines:oilLines.map(l=>({ingredient_id:l.ing.id,name:l.ing.name,g:l.pct/100*base}))};
 }
 
@@ -487,7 +512,8 @@ function refreshSheet(){
       <span><span class="k">Water</span><b>${f.waterG.toFixed(1)} g</b></span>
       <span><span class="k">Cost / bar</span><b>${money(grand/(f.bars||1))}</b></span>
     </div>
-    <table><thead><tr><th>Ingredient</th><th class="num">%</th><th class="num">Weigh</th></tr></thead>
+    ${qualitiesHTML(f.soapQ,true)}
+    <table style="margin-top:10px"><thead><tr><th>Ingredient</th><th class="num">%</th><th class="num">Weigh</th></tr></thead>
     <tbody>${rows}${adRows}</tbody></table>
     ${f.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')}`;
 }
