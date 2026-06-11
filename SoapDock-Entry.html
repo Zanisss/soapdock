@@ -379,10 +379,13 @@ function fillAddins(){renderFragRows();renderEORows();renderMicaChips();}
 function micaSwatch(m,cls){return m.image_url?`<img class="${cls||''}" src="${esc(m.image_url)}" loading="lazy" onerror="this.style.visibility='hidden'">`:(cls==='ph-ok'?'':`<span class="ph"></span>`);}
 
 // ---- fragrance / EO blend rows ----
+function addinName(a){
+  return a.product_url?`<a href="${esc(a.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none" onclick="event.stopPropagation()">${esc(a.name)} <span style="color:var(--accent);font-size:12px">↗</span></a>`:esc(a.name);
+}
 function addinRowsHTML(sel,type){
   return sel.map((s,i)=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return'';
     return `<div class="addin-row">${micaSwatch(a)}
-      <div class="info"><div class="nm">${esc(a.name)}</div><div class="meta">${esc(a.supplier||'')}${num(a.cost)?' · '+money(a.cost)+'/oz':''}</div></div>
+      <div class="info"><div class="nm">${addinName(a)}</div><div class="meta">${esc(a.supplier||'')}${num(a.cost)?' · '+money(a.cost)+'/oz':''}</div></div>
       <input class="oz" type="number" inputmode="decimal" step="0.01" placeholder="oz" value="${s.oz}" oninput="setAddinOz('${type}',${i},this.value)">
       <span class="x" onclick="removeAddinRow('${type}',${i})">×</span></div>`;}).join('');
 }
@@ -443,7 +446,7 @@ window.toggleMicaRow=window.togglePickRow;
 function renderMicaChips(){
   const micas=ADDIN.filter(a=>a.type==='mica');
   const chips=micaSel.map(id=>{const m=micas.find(a=>a.id===id);if(!m)return'';
-    return `<span class="mica-chip">${m.image_url?`<img src="${esc(m.image_url)}" loading="lazy" onerror="this.style.display='none'">`:''}${esc(m.name)}<span class="x" onclick="removeMica('${m.id}')">×</span></span>`;}).join('');
+    return `<span class="mica-chip">${m.image_url?`<img src="${esc(m.image_url)}" loading="lazy" onerror="this.style.display='none'">`:''}${addinName(m)}<span class="x" onclick="removeMica('${m.id}')">×</span></span>`;}).join('');
   $('#bMicaChips').innerHTML=chips+`<button type="button" class="mica-add" onclick="openPicker('mica')">+ Add mica</button>`;
 }
 window.removeMica=id=>{const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);renderMicaChips();refreshSheet();};
