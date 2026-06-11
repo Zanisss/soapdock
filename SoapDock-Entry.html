@@ -613,6 +613,11 @@ function phByCheckpoint(b){
   t.forEach(x=>{if(w4&&(x.date||'')>=w4)c2=x;else c1=x;});
   return {c1,c2};
 }
+function allPhChips(b){
+  const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+  if(!t.length&&b.ph_result)t.push({date:b.ph_date||'',ph:b.ph_result});
+  return t.map(x=>`<span class="chip" style="font-size:13px;padding:6px 12px">pH ${esc(String(x.ph))}${x.date?' · '+fmtMD(x.date):''}</span>`).join('');
+}
 function schedStrip(b){
   const md=b.made_on; if(!md)return'';
   const c1=addDays(md,PH_CHECK_1), c2=addDays(md,PH_CHECK_2), rd=readyDate(b), t=todayStr();
@@ -644,14 +649,13 @@ function renderHist(){
     const chips=[];
     if(b.fragrance_name)chips.push(esc(b.fragrance_name));
     (b.addins||[]).filter(a=>a.type==='mica').forEach(a=>chips.push(esc(a.name)));
-    const ph=latestPh(b);
     return `<div class="hist-card">
       <div class="top"><span class="nm">${esc(b.batch_name||b.recipe_name)}</span><span class="dt">${b.made_on||''}</span></div>
       <div class="meta">${b.batch_name?esc(b.recipe_name)+' · ':''}${m?esc(m.name):'—'} · ${b.bars_made||'?'} bars${cb?' · '+money(cb)+'/bar':''}</div>
       ${schedStrip(b)}
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">
-        ${ph?`<span class="chip">pH ${esc(String(ph.ph))}${ph.date?' · '+fmtMD(ph.date):''}</span>`:''}
-        <span class="chip" style="cursor:pointer;color:var(--accent);border-color:var(--accent)" onclick="togglePhForm('${b.id}')">+ log pH</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center">${allPhChips(b)}</div>
+        <button type="button" onclick="togglePhForm('${b.id}')" style="background:var(--accent);color:#04110f;border:none;padding:12px 16px;border-radius:9px;font-weight:700;cursor:pointer;margin-left:auto;white-space:nowrap">+ log pH</button>
       </div>
       <div id="phf-${b.id}" style="display:none;gap:8px;margin-top:10px;align-items:center">
         <input type="date" id="phd-${b.id}" value="${todayStr()}" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:11px;border-radius:9px;flex:1">
