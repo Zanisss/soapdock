@@ -605,19 +605,24 @@ window.savePh=async id=>{
 };
 $('#histSort').addEventListener('change',renderHist);
 
+function phByCheckpoint(b){
+  const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+  if(!t.length&&b.ph_result)t.push({date:b.ph_date||'',ph:b.ph_result});
+  return {c1:t[0]||null,c2:t.length>1?t[t.length-1]:null};
+}
 function schedStrip(b){
   const md=b.made_on; if(!md)return'';
   const c1=addDays(md,PH_CHECK_1), c2=addDays(md,PH_CHECK_2), rd=readyDate(b), t=todayStr();
-  const hasTestSince=d=>((b.ph_tests||[]).some(x=>(x.date||'')>=d))||(!!b.ph_result&&(b.ph_date||'')>=d);
-  const phStyle=d=>t<d?'color:var(--txt)':(hasTestSince(d)?'color:var(--good)':'color:var(--bad)');
+  const tests=phByCheckpoint(b);
   const ready=t>=rd;
   const days=Math.ceil((new Date(rd+'T00:00:00')-new Date(t+'T00:00:00'))/86400000);
-  const cell=(k,v,st)=>`<span><span class="k">${k}</span><b style="font-size:15px;${st}">${v}</b></span>`;
+  const cell=(k,v,st,sub)=>`<span><span class="k">${k}</span><b style="font-size:15px;${st||''}">${v}</b>${sub?`<span style="display:block;font-family:var(--mono);font-size:12px;color:var(--good);margin-top:2px">pH ${esc(String(sub.ph))}</span>`:''}</span>`;
+  const ckStyle=(d,test)=>test?'color:var(--txt)':(t>=d&&!ready?'color:var(--bad)':'color:var(--txt)');
   return `<div class="ro-head" style="margin-top:12px;margin-bottom:0">`+
     cell('Made',fmtMD(md),'color:var(--txt)')+
-    cell('pH · wk 3',fmtMD(c1),phStyle(c1))+
-    cell('pH · wk 4',fmtMD(c2),phStyle(c2))+
-    cell('Ready · 6 wk',ready?'✓ '+fmtMD(rd):fmtMD(rd)+' · '+days+'d',ready?'color:var(--good)':'color:var(--accent)')+
+    cell('Wk 3',fmtMD(c1),ckStyle(c1,tests.c1),tests.c1)+
+    cell('Wk 4',fmtMD(c2),ckStyle(c2,tests.c2),tests.c2)+
+    cell('Ready',ready?'✓ '+fmtMD(rd):fmtMD(rd)+' · '+days+'d',ready?'color:var(--good)':'color:var(--accent)')+
   `</div>`;
 }
 
