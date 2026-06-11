@@ -203,6 +203,7 @@
             <div class="field"><label>PH result</label><input id="mkPh" placeholder="9"></div>
             <div class="field"><label>PH test date</label><input id="mkPhDate" type="date"></div>
           </div>
+          <div class="dim mono" id="mkCureHints" style="font-size:11px;margin:-4px 0 12px"></div>
           <div class="field"><label>Notes</label><textarea id="mkNotes"></textarea></div>
         </div>
         <button class="btn big" id="mkSave">Log this batch</button>
@@ -214,8 +215,16 @@
   <div class="view" id="v-batches">
     <div id="batchListWrap">
       <div class="card">
-        <h2>Batch history</h2>
-        <table><thead><tr><th>Date</th><th>Name</th><th>Recipe</th><th>Mold</th><th class="num">Bars</th><th class="num">Cost/bar</th><th></th></tr></thead>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <h2 style="margin:0">Batch history</h2>
+          <select id="batSort" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px">
+            <option value="made_desc">Newest made</option>
+            <option value="made_asc">Oldest made</option>
+            <option value="ready_asc">Ready soonest</option>
+            <option value="ready_desc">Ready latest</option>
+          </select>
+        </div>
+        <table><thead><tr><th>Date</th><th>Name</th><th>Recipe</th><th>Mold</th><th class="num">Bars</th><th class="num">Cost/bar</th><th>Ready</th><th>pH</th><th>Status</th><th></th></tr></thead>
         <tbody id="batchRows"></tbody></table>
         <div class="empty" id="batchEmpty">No batches yet.</div>
       </div>
@@ -606,7 +615,9 @@ function fillMoldSelect(sel,selId){sel.innerHTML=MOLD.map(m=>`<option value="${m
 function renderMake(){
   const curR=$('#mkRecipe').value;fillRecipeSelect($('#mkRecipe'));if(curR)$('#mkRecipe').value=curR;
   const curM=$('#mkMold').value;fillMoldSelect($('#mkMold'));if(curM)$('#mkMold').value=curM;
-  if(!$('#mkDate').value)$('#mkDate').value=new Date().toISOString().slice(0,10);
+  if(!$('#mkDate').value){$('#mkDate').value=new Date().toISOString().slice(0,10);}
+  if(!$('#mkReady').value&&$('#mkDate').value)$('#mkReady').value=addDays($('#mkDate').value,CURE_DAYS);
+  updateMkCureHints();
   fillAddinPickers();
   refreshMake();
 }
@@ -707,6 +718,7 @@ $('#mkSave').onclick=async()=>{
     topping:$('#mkTopping').value, appearance:$('#mkAppearance').value,
     scent_top:$('#mkScentTop').value, scent_mid:$('#mkScentMid').value, scent_base:$('#mkScentBase').value,
     earliest_ready:$('#mkReady').value||null, ph_result:$('#mkPh').value, ph_date:$('#mkPhDate').value||null,
+    ph_tests:($('#mkPh').value?[{date:$('#mkPhDate').value||$('#mkDate').value,ph:$('#mkPh').value}]:[]),
     superfat:f.sf, notes_craft:$('#mkNotes').value, logged_by:$('#whoEmail').textContent
   };
   const {error}=await sb.from('batches').insert(rec);
@@ -717,12 +729,38 @@ $('#mkSave').onclick=async()=>{
 };
 
 // ---- BATCH HISTORY ----
+const CURE_DAYS=42, PH_CHECK_1=21, PH_CHECK_2=28;
+function addDays(d,n){if(!d)return'';const t=new Date(d+'T00:00:00');t.setDate(t.getDate()+n);return t.toISOString().slice(0,10);}
+function fmtMD(d){if(!d)return'—';const t=new Date(d+'T00:00:00');return (t.getMonth()+1)+'/'+t.getDate();}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function readyDate(b){return b.earliest_ready||addDays(b.made_on,CURE_DAYS);}
+function latestPh(b){const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+  if(t.length)return t[t.length-1];
+  if(b.ph_result)return{date:b.ph_date||'',ph:b.ph_result};return null;}
+function cureStatusHTML(b){const rd=readyDate(b);if(!rd)return'—';
+  if(todayStr()>=rd)return `<span style="color:var(--good)">✓ Ready</span>`;
+  const days=Math.ceil((new Date(rd+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
+  const due=!((b.ph_tests||[]).length||b.ph_result)&&todayStr()>=addDays(b.made_on,PH_CHECK_1);
+  return `<span style="color:var(--warn)">⏳ ${days}d</span>${due?' <span style="color:var(--bad)">· pH due</span>':''}`;}
+function updateMkCureHints(){const d=$('#mkDate').value,el=$('#mkCureHints');if(!el)return;
+  el.innerHTML=d?`pH check 1: <b style="color:var(--txt)">${fmtMD(addDays(d,PH_CHECK_1))}</b> (wk 3) · pH check 2: <b style="color:var(--txt)">${fmtMD(addDays(d,PH_CHECK_2))}</b> (wk 4) · full cure: <b style="color:var(--accent)">${fmtMD(addDays(d,CURE_DAYS))}</b> (6 wk)`:'';}
+$('#mkDate').addEventListener('change',()=>{const d=$('#mkDate').value;if(d)$('#mkReady').value=addDays(d,CURE_DAYS);updateMkCureHints();});
+$('#batSort').addEventListener('change',renderBatches);
 function renderBatches(){
   $('#batchEmpty').style.display=BAT.length?'none':'block';
-  $('#batchRows').innerHTML=BAT.map(b=>{const m=MOLD.find(x=>x.id===b.mold_id);const cb=b.computed?num(b.computed.cost_per_bar):0;
+  const sort=($('#batSort')&&$('#batSort').value)||'made_desc';
+  const list=BAT.slice().sort((a,b)=>{
+    if(sort==='made_asc')return (a.made_on||'').localeCompare(b.made_on||'');
+    if(sort==='ready_asc')return (readyDate(a)||'').localeCompare(readyDate(b)||'');
+    if(sort==='ready_desc')return (readyDate(b)||'').localeCompare(readyDate(a)||'');
+    return (b.made_on||'').localeCompare(a.made_on||'');
+  });
+  $('#batchRows').innerHTML=list.map(b=>{const m=MOLD.find(x=>x.id===b.mold_id);const cb=b.computed?num(b.computed.cost_per_bar):0;
+    const ph=latestPh(b);
     return `<tr><td class="mono">${b.made_on}</td><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="openBatch('${b.id}')">${esc(b.recipe_name)}</a></td>
     <td class="dim">${esc(b.snapshot?b.snapshot.name:'')}</td><td class="dim">${m?esc(m.name):'—'}</td>
     <td class="num">${b.bars_made}</td><td class="num">${cb?money(cb):'—'}</td>
+    <td class="mono">${readyDate(b)||'—'}</td><td class="mono">${ph?esc(String(ph.ph)):'—'}</td><td class="mono">${cureStatusHTML(b)}</td>
     <td class="num"><button class="btn danger sm" onclick="delBatch('${b.id}')">×</button></td></tr>`;}).join('');
 }
 window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.find(x=>x.id===b.mold_id);const c=b.computed||{};
@@ -743,7 +781,19 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Topping:</span> ${esc(b.topping||'—')}</p>
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Appearance:</span> ${esc(b.appearance||'—')}</p>
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Scent:</span> ${esc(b.scent_top||'')} / ${esc(b.scent_mid||'')} / ${esc(b.scent_base||'')}</p>
-        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">PH:</span> ${esc(b.ph_result||'—')} ${b.ph_date?'('+b.ph_date+')':''} &nbsp; <span class="dim">Ready:</span> ${b.earliest_ready||'—'}</p>
+        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Ready:</span> ${readyDate(b)||'—'} ${cureStatusHTML(b)}</p>
+        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">pH checks:</span> wk 3 → ${fmtMD(addDays(b.made_on,PH_CHECK_1))} · wk 4 → ${fmtMD(addDays(b.made_on,PH_CHECK_2))}</p>
+        <div class="mono" style="font-size:12px;margin-top:6px"><span class="dim">pH log:</span>
+          ${(()=>{const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+            const legacy=b.ph_result&&!t.length?[{date:b.ph_date||'',ph:b.ph_result}]:[];
+            const all=legacy.concat(t);
+            return all.length?all.map(x=>`<span class="pill" style="margin:0 4px 4px 0">${esc(String(x.ph))}${x.date?' · '+x.date:''}</span>`).join(''):' —';})()}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input type="date" id="bdPhDate" value="${todayStr()}" style="padding:7px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:7px">
+          <input type="number" step="0.1" id="bdPhVal" placeholder="pH" style="width:70px;padding:7px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:7px;text-align:right;font-family:var(--mono)">
+          <button class="btn ghost sm" onclick="saveBatchPh('${b.id}')">+ log pH</button>
+        </div>
         ${b.notes_craft?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Notes:</span> ${esc(b.notes_craft)}</p>`:''}
       </div>
     </div>
@@ -755,6 +805,15 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
       <span id="batchPhotoStatus" class="dim mono" style="font-size:11px;margin-left:8px"></span>
     </div>`;
   renderBatchPhotos(b);
+};
+window.saveBatchPh=async id=>{
+  const b=BAT.find(x=>x.id===id);if(!b)return;
+  const date=$('#bdPhDate').value||todayStr(), ph=$('#bdPhVal').value;
+  if(!ph){toast('Enter a pH value');return;}
+  const tests=(b.ph_tests||[]).concat([{date,ph}]);
+  const {error}=await sb.from('batches').update({ph_tests:tests}).eq('id',id);
+  if(error){toast('Error: '+error.message);return;}
+  b.ph_tests=tests;toast('pH logged');openBatch(id);renderBatches();
 };
 let curBatch=null;
 function renderBatchPhotos(b){

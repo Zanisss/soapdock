@@ -184,7 +184,8 @@
             <div class="field"><label>Date made</label><input id="bDate" type="date"></div>
             <div class="field"><label>Bars made</label><input id="bBars" type="number" inputmode="numeric"></div>
           </div>
-          <div class="field"><label>Earliest ready date</label><input id="bReady" type="date"></div>
+          <div class="field"><label>Earliest ready date</label><input id="bReady" type="date">
+            <div class="dim mono" id="bCureHints" style="font-size:12px;margin-top:8px;line-height:1.6"></div></div></div>
         </div>
         <div style="height:70px"></div>
       </div>
@@ -196,7 +197,15 @@
 
   <div class="view" id="v-hist">
     <div class="wrap">
-      <h2 class="sec">Recent batches</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 14px">
+        <h2 class="sec" style="margin:0">Recent batches</h2>
+        <select id="histSort" style="background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:10px 12px;border-radius:10px;font-family:var(--mono);font-size:13px">
+          <option value="made_desc">Newest made</option>
+          <option value="made_asc">Oldest made</option>
+          <option value="ready_asc">Ready soonest</option>
+          <option value="ready_desc">Ready latest</option>
+        </select>
+      </div>
       <div id="histList"></div>
       <div class="empty" id="histEmpty" style="display:none">No batches logged yet.</div>
     </div>
@@ -370,6 +379,7 @@ window.pickRecipe=id=>{
   $('#bDate').value=new Date().toISOString().slice(0,10);
   ['bTopping','bAppearance','bScentTop','bScentMid','bScentBase','bNotes','bReady','bBars'].forEach(i=>$('#'+i).value='');
   renderPhotoGrid();$('#photoStatus').textContent='';
+  $('#bReady').value=addDays($('#bDate').value,CURE_DAYS);updateCureHints();
   refreshSheet();
   window.scrollTo(0,0);
 };
@@ -548,7 +558,7 @@ $('#bSave').onclick=async()=>{
     fragrance_name:fragNames.join(' + '), fragrance_manuf:fragManufs.join(' + '),
     topping:$('#bTopping').value, appearance:$('#bAppearance').value,
     scent_top:$('#bScentTop').value, scent_mid:$('#bScentMid').value, scent_base:$('#bScentBase').value,
-    earliest_ready:$('#bReady').value||null, superfat:f.sf, notes_craft:$('#bNotes').value, logged_by:$('#whoEmail').textContent
+    earliest_ready:$('#bReady').value||null, ph_tests:[], superfat:f.sf, notes_craft:$('#bNotes').value, logged_by:$('#whoEmail').textContent
   };
   $('#bSave').textContent='Saving…';$('#bSave').disabled=true;
   const {error}=await sb.from('batches').insert(rec);
@@ -560,17 +570,69 @@ $('#bSave').onclick=async()=>{
   document.querySelector('nav.tabs button[data-v="hist"]').click();
 };
 
+// ---- cure / pH model ----
+const CURE_DAYS=42, PH_CHECK_1=21, PH_CHECK_2=28;
+function addDays(d,n){if(!d)return'';const t=new Date(d+'T00:00:00');t.setDate(t.getDate()+n);return t.toISOString().slice(0,10);}
+function fmtMD(d){if(!d)return'—';const t=new Date(d+'T00:00:00');return (t.getMonth()+1)+'/'+t.getDate();}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function readyDate(b){return b.earliest_ready||addDays(b.made_on,CURE_DAYS);}
+function latestPh(b){const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+  if(t.length)return t[t.length-1];
+  if(b.ph_result)return{date:b.ph_date||'',ph:b.ph_result};return null;}
+function cureChip(b){const rd=readyDate(b);if(!rd)return'';
+  if(todayStr()>=rd)return `<span class="chip" style="color:var(--good);border-color:var(--good)">✓ Ready</span>`;
+  const days=Math.ceil((new Date(rd+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
+  return `<span class="chip" style="color:var(--warn);border-color:var(--warn)">⏳ Ready ${fmtMD(rd)} · ${days}d</span>`;}
+function phDueChip(b){
+  if(todayStr()>=readyDate(b))return'';
+  if((b.ph_tests||[]).length||b.ph_result)return'';
+  const c1=addDays(b.made_on,PH_CHECK_1);
+  if(c1&&todayStr()>=c1)return `<span class="chip" style="color:var(--bad);border-color:var(--bad)">pH check due</span>`;
+  return'';}
+function updateCureHints(){const d=$('#bDate').value;
+  $('#bCureHints').innerHTML=d?`pH check 1: <b style="color:var(--txt)">${fmtMD(addDays(d,PH_CHECK_1))}</b> (wk 3) · pH check 2: <b style="color:var(--txt)">${fmtMD(addDays(d,PH_CHECK_2))}</b> (wk 4) · full cure: <b style="color:var(--accent)">${fmtMD(addDays(d,CURE_DAYS))}</b> (6 wk)`:'';}
+$('#bDate').addEventListener('change',()=>{const d=$('#bDate').value;if(d)$('#bReady').value=addDays(d,CURE_DAYS);updateCureHints();});
+window.togglePhForm=id=>{const f=$('#phf-'+id);if(f)f.style.display=f.style.display==='none'?'flex':'none';};
+window.savePh=async id=>{
+  const b=BAT.find(x=>x.id===id);if(!b)return;
+  const date=$('#phd-'+id).value||todayStr(), ph=$('#phv-'+id).value;
+  if(!ph){toast('Enter a pH value');return;}
+  const tests=(b.ph_tests||[]).concat([{date,ph}]);
+  const {error}=await sb.from('batches').update({ph_tests:tests}).eq('id',id);
+  if(error){toast('Error: '+error.message);return;}
+  b.ph_tests=tests;toast('pH logged');renderHist();
+};
+$('#histSort').addEventListener('change',renderHist);
+
 function renderHist(){
   $('#histEmpty').style.display=BAT.length?'none':'block';
-  $('#histList').innerHTML=BAT.slice(0,40).map(b=>{
+  const sort=$('#histSort').value||'made_desc';
+  const list=BAT.slice().sort((a,b)=>{
+    if(sort==='made_asc')return (a.made_on||'').localeCompare(b.made_on||'');
+    if(sort==='ready_asc')return (readyDate(a)||'').localeCompare(readyDate(b)||'');
+    if(sort==='ready_desc')return (readyDate(b)||'').localeCompare(readyDate(a)||'');
+    return (b.made_on||'').localeCompare(a.made_on||'');
+  });
+  $('#histList').innerHTML=list.slice(0,40).map(b=>{
     const m=MOLD.find(x=>x.id===b.mold_id);
     const cb=b.computed?num(b.computed.cost_per_bar):0;
     const chips=[];
     if(b.fragrance_name)chips.push(esc(b.fragrance_name));
     (b.addins||[]).filter(a=>a.type==='mica').forEach(a=>chips.push(esc(a.name)));
+    const ph=latestPh(b);
     return `<div class="hist-card">
       <div class="top"><span class="nm">${esc(b.recipe_name)}</span><span class="dt">${b.made_on||''}</span></div>
       <div class="meta">${m?esc(m.name):'—'} · ${b.bars_made||'?'} bars${cb?' · '+money(cb)+'/bar':''}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+        ${cureChip(b)}${phDueChip(b)}
+        ${ph?`<span class="chip">pH ${esc(String(ph.ph))}${ph.date?' · '+fmtMD(ph.date):''}</span>`:''}
+        <span class="chip" style="cursor:pointer;color:var(--accent);border-color:var(--accent)" onclick="togglePhForm('${b.id}')">+ log pH</span>
+      </div>
+      <div id="phf-${b.id}" style="display:none;gap:8px;margin-top:10px;align-items:center">
+        <input type="date" id="phd-${b.id}" value="${todayStr()}" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:11px;border-radius:9px;flex:1">
+        <input type="number" inputmode="decimal" step="0.1" placeholder="pH" id="phv-${b.id}" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:11px;border-radius:9px;width:84px;text-align:right;font-family:var(--mono)">
+        <button type="button" onclick="savePh('${b.id}')" style="background:var(--accent);color:#04110f;border:none;padding:12px 16px;border-radius:9px;font-weight:700;cursor:pointer">Save</button>
+      </div>
       ${chips.length?'<div>'+chips.map(c=>`<span class="chip">${c}</span>`).join('')+'</div>':''}
       ${(b.photos&&b.photos.length)?'<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'+b.photos.map(p=>`<img src="${p.url}" onclick="window.open('${p.url}')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">`).join('')+'</div>':''}
       ${b.notes_craft?`<div class="meta" style="margin-top:8px;color:var(--txt)">${esc(b.notes_craft)}</div>`:''}
