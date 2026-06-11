@@ -162,8 +162,9 @@
   <div class="view" id="v-make">
     <div class="card">
       <h2>Make a batch</h2>
-      <div class="grid3">
+      <div class="grid4">
         <div class="field"><label>Base recipe</label><select id="mkRecipe"></select></div>
+        <div class="field"><label>Batch name</label><input id="mkName" placeholder="e.g. Chocolate Lavender #3"></div>
         <div class="field"><label>Mold</label><select id="mkMold"></select></div>
         <div class="field"><label>Date made</label><input id="mkDate" type="date"></div>
       </div>
@@ -224,7 +225,7 @@
             <option value="ready_desc">Ready latest</option>
           </select>
         </div>
-        <table><thead><tr><th>Date</th><th>Name</th><th>Recipe</th><th>Mold</th><th class="num">Bars</th><th class="num">Cost/bar</th><th>Ready</th><th>pH</th><th>Status</th><th></th></tr></thead>
+        <table><thead><tr><th>Date</th><th>Name</th><th>Recipe</th><th>Mold</th><th class="num">Bars</th><th class="num">Cost/bar</th><th>pH wk 3</th><th>pH wk 4</th><th>Ready 6 wk</th><th>pH</th><th>Status</th><th></th></tr></thead>
         <tbody id="batchRows"></tbody></table>
         <div class="empty" id="batchEmpty">No batches yet.</div>
       </div>
@@ -710,7 +711,7 @@ $('#mkSave').onclick=async()=>{
     oils_lye_cost:f.totalCost,addin_cost:addin.cost,total_cost:grandTotal,cost_per_bar:bars>0?grandTotal/bars:0};
   const frag=ADDIN.find(a=>a.id===$('#mkFrag').value);
   const rec={
-    recipe_id:r.id, recipe_name:r.name, mold_id:m.id,
+    recipe_id:r.id, recipe_name:r.name, batch_name:$('#mkName').value.trim()||null, mold_id:m.id,
     bars_made:bars, made_on:$('#mkDate').value,
     snapshot:{name:r.name,superfat:r.superfat,lye_type:r.lye_type,water_method:r.water_method,lye_conc:r.lye_conc,water_disc:r.water_disc,water_pct:r.water_pct,ingredients:r.ingredients},
     overrides:mkOverrideLines, computed, addins:addin.list,
@@ -724,7 +725,7 @@ $('#mkSave').onclick=async()=>{
   const {error}=await sb.from('batches').insert(rec);
   if(error){toast('Error: '+error.message);return;}
   // reset
-  mkOverrideLines=[];mkMicaSel=[];['mkTopping','mkAppearance','mkScentTop','mkScentMid','mkScentBase','mkPh','mkNotes','mkFragOz','mkEOOz'].forEach(id=>$('#'+id).value='');
+  mkOverrideLines=[];mkMicaSel=[];['mkName','mkTopping','mkAppearance','mkScentTop','mkScentMid','mkScentBase','mkPh','mkNotes','mkFragOz','mkEOOz'].forEach(id=>$('#'+id).value='');
   $('#mkFrag').value='';$('#mkEO').value='';$('#mkBars').value='';toast('Batch logged!');loadAll();
 };
 
@@ -737,6 +738,9 @@ function readyDate(b){return b.earliest_ready||addDays(b.made_on,CURE_DAYS);}
 function latestPh(b){const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
   if(t.length)return t[t.length-1];
   if(b.ph_result)return{date:b.ph_date||'',ph:b.ph_result};return null;}
+function hasTestSince(b,dt){return ((b.ph_tests||[]).some(x=>(x.date||'')>=dt))||(!!b.ph_result&&(b.ph_date||'')>=dt);}
+function phCell(b,dt){const t=todayStr();const st=t<dt?'':(hasTestSince(b,dt)?'color:var(--good)':'color:var(--bad)');
+  return `<td class="mono" style="${st}">${fmtMD(dt)}</td>`;}
 function cureStatusHTML(b){const rd=readyDate(b);if(!rd)return'—';
   if(todayStr()>=rd)return `<span style="color:var(--good)">✓ Ready</span>`;
   const days=Math.ceil((new Date(rd+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
@@ -757,10 +761,12 @@ function renderBatches(){
   });
   $('#batchRows').innerHTML=list.map(b=>{const m=MOLD.find(x=>x.id===b.mold_id);const cb=b.computed?num(b.computed.cost_per_bar):0;
     const ph=latestPh(b);
-    return `<tr><td class="mono">${b.made_on}</td><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="openBatch('${b.id}')">${esc(b.recipe_name)}</a></td>
+    return `<tr><td class="mono">${b.made_on}</td><td><a class="mono" style="color:var(--accent);cursor:pointer" onclick="openBatch('${b.id}')">${esc(b.batch_name||b.recipe_name)}</a></td>
     <td class="dim">${esc(b.snapshot?b.snapshot.name:'')}</td><td class="dim">${m?esc(m.name):'—'}</td>
     <td class="num">${b.bars_made}</td><td class="num">${cb?money(cb):'—'}</td>
-    <td class="mono">${readyDate(b)||'—'}</td><td class="mono">${ph?esc(String(ph.ph)):'—'}</td><td class="mono">${cureStatusHTML(b)}</td>
+    ${phCell(b,addDays(b.made_on,PH_CHECK_1))}${phCell(b,addDays(b.made_on,PH_CHECK_2))}
+    <td class="mono">${todayStr()>=readyDate(b)?'<span style="color:var(--good)">✓ ':''}${fmtMD(readyDate(b))||'—'}${todayStr()>=readyDate(b)?'</span>':''}</td>
+    <td class="mono">${ph?esc(String(ph.ph)):'—'}</td><td class="mono">${cureStatusHTML(b)}</td>
     <td class="num"><button class="btn danger sm" onclick="delBatch('${b.id}')">×</button></td></tr>`;}).join('');
 }
 window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.find(x=>x.id===b.mold_id);const c=b.computed||{};
@@ -768,7 +774,7 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
   const oils=(c.oils||[]).map(o=>`<tr><td>${esc(o.name)}</td><td class="num">${num(o.g).toFixed(1)} g</td></tr>`).join('');
   const ov=(b.overrides||[]).map(o=>{const ing=ingById(o.ingredient_id);return ing?`<li>${esc(ing.name)} — ${o.mode==='mark'?'✓':(o.mode==='pct'?o.pct+'%':o.amt+' '+o.mode)}</li>`:'';}).join('');
   $('#batchDetail').innerHTML=`
-    <h2>${esc(b.recipe_name)} <span class="pill sd" style="margin-left:8px">${b.made_on}</span></h2>
+    <h2>${esc(b.batch_name||b.recipe_name)} <span class="pill sd" style="margin-left:8px">${b.made_on}</span></h2>
     <div class="costline"><span><span class="k">Recipe</span> <b>${esc(b.snapshot?b.snapshot.name:'')}</b></span><span><span class="k">Mold</span> <b>${m?esc(m.name):'—'}</b></span><span><span class="k">Bars made</span> <b>${b.bars_made}</b></span><span><span class="k">Cost/bar</span> <span class="use">${money(num(c.cost_per_bar))}</span></span></div>
     <div class="row" style="margin-top:14px">
       <div style="flex:1;min-width:240px"><h3>Oils</h3><table>${oils}</table>

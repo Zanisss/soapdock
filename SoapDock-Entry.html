@@ -140,7 +140,8 @@
         <div class="card">
           <div class="step-label">Making</div>
           <div style="font-size:22px;font-weight:700" id="sheetName"></div>
-          <div class="field" style="margin-top:14px"><label>Mold</label><select id="sheetMold"></select></div>
+          <div class="field" style="margin-top:14px"><label>Batch name</label><input id="bName" placeholder="e.g. Chocolate Lavender #3"></div>
+          <div class="field"><label>Mold</label><select id="sheetMold"></select></div>
           <div id="sheetReadout"></div>
         </div>
 
@@ -377,7 +378,7 @@ window.pickRecipe=id=>{
   $('#sheetMold').innerHTML=MOLD.map(m=>`<option value="${m.id}" ${m.id===chosenRec.default_mold_id?'selected':''}>${esc(m.name)} (${m.total_oil_g}g · ${m.bars} bars)</option>`).join('');
   fillAddins();
   $('#bDate').value=new Date().toISOString().slice(0,10);
-  ['bTopping','bAppearance','bScentTop','bScentMid','bScentBase','bNotes','bReady','bBars'].forEach(i=>$('#'+i).value='');
+  ['bName','bTopping','bAppearance','bScentTop','bScentMid','bScentBase','bNotes','bReady','bBars'].forEach(i=>$('#'+i).value='');
   renderPhotoGrid();$('#photoStatus').textContent='';
   $('#bReady').value=addDays($('#bDate').value,CURE_DAYS);updateCureHints();
   refreshSheet();
@@ -552,7 +553,7 @@ $('#bSave').onclick=async()=>{
   const computed={oils:f.oilLines,lye_g:f.lyeG,lye_ing:lyeIng?lyeIng.id:null,water_g:f.waterG,water_ing:waterIng?waterIng.id:null,
     oils_lye_cost:f.totalCost,addin_cost:ad.cost,total_cost:grand,cost_per_bar:bars>0?grand/bars:0};
   const rec={
-    recipe_id:chosenRec.id, recipe_name:chosenRec.name, mold_id:m.id, bars_made:bars, made_on:$('#bDate').value,
+    recipe_id:chosenRec.id, recipe_name:chosenRec.name, batch_name:$('#bName').value.trim()||null, mold_id:m.id, bars_made:bars, made_on:$('#bDate').value,
     snapshot:{name:chosenRec.name,superfat:chosenRec.superfat,lye_type:chosenRec.lye_type,water_method:chosenRec.water_method,lye_conc:chosenRec.lye_conc,water_disc:chosenRec.water_disc,water_pct:chosenRec.water_pct,ingredients:chosenRec.ingredients},
     overrides:[], computed, addins:ad.list, photos:batchPhotos,
     fragrance_name:fragNames.join(' + '), fragrance_manuf:fragManufs.join(' + '),
@@ -604,6 +605,22 @@ window.savePh=async id=>{
 };
 $('#histSort').addEventListener('change',renderHist);
 
+function schedStrip(b){
+  const md=b.made_on; if(!md)return'';
+  const c1=addDays(md,PH_CHECK_1), c2=addDays(md,PH_CHECK_2), rd=readyDate(b), t=todayStr();
+  const hasTestSince=d=>((b.ph_tests||[]).some(x=>(x.date||'')>=d))||(!!b.ph_result&&(b.ph_date||'')>=d);
+  const phStyle=d=>t<d?'color:var(--txt)':(hasTestSince(d)?'color:var(--good)':'color:var(--bad)');
+  const ready=t>=rd;
+  const days=Math.ceil((new Date(rd+'T00:00:00')-new Date(t+'T00:00:00'))/86400000);
+  const cell=(k,v,st)=>`<span><span class="k">${k}</span><b style="font-size:15px;${st}">${v}</b></span>`;
+  return `<div class="ro-head" style="margin-top:12px;margin-bottom:0">`+
+    cell('Made',fmtMD(md),'color:var(--txt)')+
+    cell('pH · wk 3',fmtMD(c1),phStyle(c1))+
+    cell('pH · wk 4',fmtMD(c2),phStyle(c2))+
+    cell('Ready · 6 wk',ready?'✓ '+fmtMD(rd):fmtMD(rd)+' · '+days+'d',ready?'color:var(--good)':'color:var(--accent)')+
+  `</div>`;
+}
+
 function renderHist(){
   $('#histEmpty').style.display=BAT.length?'none':'block';
   const sort=$('#histSort').value||'made_desc';
@@ -621,10 +638,10 @@ function renderHist(){
     (b.addins||[]).filter(a=>a.type==='mica').forEach(a=>chips.push(esc(a.name)));
     const ph=latestPh(b);
     return `<div class="hist-card">
-      <div class="top"><span class="nm">${esc(b.recipe_name)}</span><span class="dt">${b.made_on||''}</span></div>
-      <div class="meta">${m?esc(m.name):'—'} · ${b.bars_made||'?'} bars${cb?' · '+money(cb)+'/bar':''}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
-        ${cureChip(b)}${phDueChip(b)}
+      <div class="top"><span class="nm">${esc(b.batch_name||b.recipe_name)}</span><span class="dt">${b.made_on||''}</span></div>
+      <div class="meta">${b.batch_name?esc(b.recipe_name)+' · ':''}${m?esc(m.name):'—'} · ${b.bars_made||'?'} bars${cb?' · '+money(cb)+'/bar':''}</div>
+      ${schedStrip(b)}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">
         ${ph?`<span class="chip">pH ${esc(String(ph.ph))}${ph.date?' · '+fmtMD(ph.date):''}</span>`:''}
         <span class="chip" style="cursor:pointer;color:var(--accent);border-color:var(--accent)" onclick="togglePhForm('${b.id}')">+ log pH</span>
       </div>
