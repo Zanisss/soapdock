@@ -741,7 +741,10 @@ function latestPh(b){const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').l
 function phByCheckpoint(b){
   const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
   if(!t.length&&b.ph_result)t.push({date:b.ph_date||'',ph:b.ph_result});
-  return {c1:t[0]||null,c2:t.length>1?t[t.length-1]:null};
+  const w4=addDays(b.made_on,PH_CHECK_2);
+  let c1=null,c2=null;
+  t.forEach(x=>{if(w4&&(x.date||'')>=w4)c2=x;else c1=x;});
+  return {c1,c2};
 }
 function phCell(b,dt,test){const t=todayStr();const overdue=t>=dt&&!test&&t<readyDate(b);
   return `<td class="mono" style="${overdue?'color:var(--bad)':''}">${fmtMD(dt)}${test?`<div style="font-size:11px;color:var(--good)">pH ${esc(String(test.ph))}</div>`:''}</td>`;}
