@@ -57,6 +57,15 @@
   .field textarea{min-height:70px;resize:vertical}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .fragrow{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+  .addin-rows{display:flex;flex-direction:column;gap:10px}
+  .addin-row{display:flex;align-items:center;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .addin-row img,.addin-row .ph{width:42px;height:42px;border-radius:9px;object-fit:cover;border:1px solid var(--line);background:var(--panel2);flex:0 0 auto}
+  .addin-row .info{flex:1;min-width:0}
+  .addin-row .nm{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .addin-row .meta{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
+  .addin-row input.oz{width:78px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px 8px;border-radius:9px;text-align:right;font-family:var(--mono);font-size:16px}
+  .addin-row .x{color:var(--bad);font-size:22px;font-weight:700;padding:4px 8px;cursor:pointer;flex:0 0 auto}
+  .addin-add{background:var(--bg);border:1px dashed var(--line);color:var(--dim);padding:13px 18px;border-radius:12px;font-size:14px;font-family:var(--mono);cursor:pointer;text-align:left}
   .micas{display:flex;flex-wrap:wrap;gap:10px}
   .mica-tag{background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:12px 16px;border-radius:24px;font-size:15px;cursor:pointer;font-family:var(--mono)}
   .mica-tag.on{background:var(--accent);color:#04110f;border-color:var(--accent);font-weight:600}
@@ -138,10 +147,10 @@
         <div class="card">
           <div class="step-label">This batch's additions</div>
           <div class="field"><label>Fragrance</label>
-            <div class="fragrow"><select id="bFrag"></select><input id="bFragOz" type="number" inputmode="decimal" step="0.01" placeholder="oz"></div>
+            <div class="addin-rows" id="bFragRows"></div>
           </div>
           <div class="field"><label>Essential oil</label>
-            <div class="fragrow"><select id="bEO"></select><input id="bEOOz" type="number" inputmode="decimal" step="0.01" placeholder="oz"></div>
+            <div class="addin-rows" id="bEORows"></div>
           </div>
           <div class="field"><label>Micas used</label><div class="mica-chips" id="bMicaChips"></div></div>
         </div>
@@ -210,12 +219,12 @@
 
 <div id="toast"></div>
 
-<div class="sheet-overlay" id="micaSheet" onclick="if(event.target===this)closeMicaPicker()">
+<div class="sheet-overlay" id="micaSheet" onclick="if(event.target===this)closePicker()">
   <div class="pick-sheet">
-    <div class="pick-top"><b>Pick micas</b><span class="dim" id="micaCount"></span></div>
-    <div class="pick-search"><input id="micaSearch" placeholder="Search colors…" oninput="renderMicaList()"></div>
+    <div class="pick-top"><b id="pickTitle">Pick</b><span class="dim" id="micaCount"></span></div>
+    <div class="pick-search"><input id="micaSearch" placeholder="Search…" oninput="renderPickList()"></div>
     <div class="pick-list" id="micaList"></div>
-    <button type="button" class="pick-done" onclick="closeMicaPicker()">Done</button>
+    <button type="button" class="pick-done" onclick="closePicker()">Done</button>
   </div>
 </div>
 
@@ -257,7 +266,7 @@ async function loadTheme(){
 try{const c=localStorage.getItem('sd_theme');if(c)applyTheme(c);}catch(e){}
 
 let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[];
-let chosenRec=null, micaSel=[], batchPhotos=[];
+let chosenRec=null, micaSel=[], fragSel=[], eoSel=[], batchPhotos=[];
 const $=s=>document.querySelector(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
 const CAT_COLOR={oil:'var(--accent)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',fragrance:'var(--warn)',additive:'var(--good)',other:'var(--dim)'};
@@ -351,7 +360,7 @@ function renderRecipeCards(){
 
 window.pickRecipe=id=>{
   chosenRec=REC.find(x=>x.id===id);if(!chosenRec)return;
-  micaSel=[];batchPhotos=[];
+  micaSel=[];fragSel=[];eoSel=[];batchPhotos=[];
   $('#logStep1').style.display='none';
   $('#logStep2').style.display='block';
   $('#saveBar').style.display='block';
@@ -359,51 +368,92 @@ window.pickRecipe=id=>{
   $('#sheetMold').innerHTML=MOLD.map(m=>`<option value="${m.id}" ${m.id===chosenRec.default_mold_id?'selected':''}>${esc(m.name)} (${m.total_oil_g}g · ${m.bars} bars)</option>`).join('');
   fillAddins();
   $('#bDate').value=new Date().toISOString().slice(0,10);
-  ['bFragOz','bEOOz','bTopping','bAppearance','bScentTop','bScentMid','bScentBase','bNotes','bReady','bBars'].forEach(i=>$('#'+i).value='');
-  $('#bFrag').value='';$('#bEO').value='';
+  ['bTopping','bAppearance','bScentTop','bScentMid','bScentBase','bNotes','bReady','bBars'].forEach(i=>$('#'+i).value='');
   renderPhotoGrid();$('#photoStatus').textContent='';
   refreshSheet();
   window.scrollTo(0,0);
 };
 $('#logBack').onclick=()=>{$('#logStep2').style.display='none';$('#saveBar').style.display='none';$('#logStep1').style.display='block';chosenRec=null;};
 
-function fillAddins(){
-  const frags=ADDIN.filter(a=>a.type==='fragrance'),eos=ADDIN.filter(a=>a.type==='eo'),micas=ADDIN.filter(a=>a.type==='mica');
-  $('#bFrag').innerHTML='<option value="">— none —</option>'+frags.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
-  $('#bEO').innerHTML='<option value="">— none —</option>'+eos.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
-  renderMicaChips();
-}
+function fillAddins(){renderFragRows();renderEORows();renderMicaChips();}
 function micaSwatch(m,cls){return m.image_url?`<img class="${cls||''}" src="${esc(m.image_url)}" loading="lazy" onerror="this.style.visibility='hidden'">`:(cls==='ph-ok'?'':`<span class="ph"></span>`);}
+
+// ---- fragrance / EO blend rows ----
+function addinRowsHTML(sel,type){
+  return sel.map((s,i)=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return'';
+    return `<div class="addin-row">${micaSwatch(a)}
+      <div class="info"><div class="nm">${esc(a.name)}</div><div class="meta">${esc(a.supplier||'')}${num(a.cost)?' · '+money(a.cost)+'/oz':''}</div></div>
+      <input class="oz" type="number" inputmode="decimal" step="0.01" placeholder="oz" value="${s.oz}" oninput="setAddinOz('${type}',${i},this.value)">
+      <span class="x" onclick="removeAddinRow('${type}',${i})">×</span></div>`;}).join('');
+}
+function renderFragRows(){
+  $('#bFragRows').innerHTML=addinRowsHTML(fragSel,'fragrance')+
+    `<button type="button" class="addin-add" onclick="openPicker('fragrance')">+ Add fragrance${fragSel.length?' (blend)':''}</button>`;
+}
+function renderEORows(){
+  $('#bEORows').innerHTML=addinRowsHTML(eoSel,'eo')+
+    `<button type="button" class="addin-add" onclick="openPicker('eo')">+ Add essential oil</button>`;
+}
+window.setAddinOz=(type,i,v)=>{const sel=type==='fragrance'?fragSel:eoSel;if(sel[i])sel[i].oz=v;refreshSheet();};
+window.removeAddinRow=(type,i)=>{const sel=type==='fragrance'?fragSel:eoSel;sel.splice(i,1);
+  if(type==='fragrance'){renderFragRows();fillScentFromBlend();}else renderEORows();refreshSheet();};
+
+// merge Top/Mid/Base from every fragrance in the blend (dedup, keep order)
+function mergeNotes(field){
+  const seen=new Set(),out=[];
+  fragSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a||!a[field])return;
+    a[field].split(',').map(t=>t.trim()).filter(Boolean).forEach(t=>{const k=t.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(t);}});});
+  return out.join(', ');
+}
+function fillScentFromBlend(){
+  $('#bScentTop').value=mergeNotes('note_top');
+  $('#bScentMid').value=mergeNotes('note_mid');
+  $('#bScentBase').value=mergeNotes('note_base');
+}
+
+// ---- generalized bottom-sheet picker (micas / fragrances / EOs) ----
+let pickType='mica';
+const PICK_TITLES={mica:'Pick micas',fragrance:'Pick fragrances',eo:'Pick essential oils'};
+window.openPicker=t=>{pickType=t;$('#pickTitle').textContent=PICK_TITLES[t];$('#micaSearch').value='';
+  $('#micaSearch').placeholder=t==='mica'?'Search colors…':'Search scents…';renderPickList();$('#micaSheet').classList.add('show');};
+window.openMicaPicker=()=>openPicker('mica');
+window.closePicker=()=>{$('#micaSheet').classList.remove('show');};
+window.closeMicaPicker=window.closePicker;
+function pickSelIds(){return pickType==='mica'?micaSel:(pickType==='fragrance'?fragSel:eoSel).map(s=>s.id);}
+window.renderPickList=()=>{
+  const q=($('#micaSearch').value||'').toLowerCase();
+  const items=ADDIN.filter(a=>a.type===pickType&&(!q||a.name.toLowerCase().includes(q)||(a.supplier||'').toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
+  const selIds=pickSelIds();
+  $('#micaCount').textContent=selIds.length?selIds.length+' selected':'';
+  $('#micaList').innerHTML=items.length?items.map(m=>{
+    const on=selIds.includes(m.id);
+    const meta=pickType==='mica'?'':`<div class="meta dim mono" style="font-size:11px;margin-top:2px">${esc(m.supplier||'')}${num(m.cost)?' · '+money(m.cost)+'/oz':''}</div>`;
+    return `<div class="mrow${on?' on':''}" onclick="togglePickRow('${m.id}')">${micaSwatch(m)}<div style="min-width:0;flex:1"><div class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>${meta}</div><span class="chk">✓</span></div>`;
+  }).join(''):'<div class="dim mono" style="padding:18px;font-size:13px">No matches.</div>';
+};
+window.renderMicaList=window.renderPickList;
+window.togglePickRow=id=>{
+  if(pickType==='mica'){const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);else micaSel.push(id);renderMicaChips();}
+  else{const sel=pickType==='fragrance'?fragSel:eoSel;const i=sel.findIndex(s=>s.id===id);
+    if(i>=0)sel.splice(i,1);else sel.push({id,oz:''});
+    if(pickType==='fragrance'){renderFragRows();fillScentFromBlend();}else renderEORows();}
+  renderPickList();refreshSheet();
+};
+window.toggleMicaRow=window.togglePickRow;
 function renderMicaChips(){
   const micas=ADDIN.filter(a=>a.type==='mica');
   const chips=micaSel.map(id=>{const m=micas.find(a=>a.id===id);if(!m)return'';
     return `<span class="mica-chip">${m.image_url?`<img src="${esc(m.image_url)}" loading="lazy" onerror="this.style.display='none'">`:''}${esc(m.name)}<span class="x" onclick="removeMica('${m.id}')">×</span></span>`;}).join('');
-  $('#bMicaChips').innerHTML=chips+`<button type="button" class="mica-add" onclick="openMicaPicker()">+ Add mica</button>`;
+  $('#bMicaChips').innerHTML=chips+`<button type="button" class="mica-add" onclick="openPicker('mica')">+ Add mica</button>`;
 }
 window.removeMica=id=>{const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);renderMicaChips();refreshSheet();};
-window.openMicaPicker=()=>{$('#micaSearch').value='';renderMicaList();$('#micaSheet').classList.add('show');};
-window.closeMicaPicker=()=>{$('#micaSheet').classList.remove('show');};
-window.renderMicaList=()=>{
-  const q=($('#micaSearch').value||'').toLowerCase();
-  const micas=ADDIN.filter(a=>a.type==='mica'&&(!q||a.name.toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
-  $('#micaCount').textContent=micaSel.length?micaSel.length+' selected':'';
-  $('#micaList').innerHTML=micas.length?micas.map(m=>{
-    const on=micaSel.includes(m.id);
-    return `<div class="mrow${on?' on':''}" onclick="toggleMicaRow('${m.id}')">${micaSwatch(m)}<span class="nm">${esc(m.name)}</span><span class="chk">✓</span></div>`;
-  }).join(''):'<div class="dim mono" style="padding:18px;font-size:13px">No matches.</div>';
-};
-window.toggleMicaRow=id=>{const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);else micaSel.push(id);renderMicaChips();renderMicaList();refreshSheet();};
 
-$('#bFrag').addEventListener('change',()=>{const a=ADDIN.find(x=>x.id===$('#bFrag').value);
-  if(a){if(a.note_top)$('#bScentTop').value=a.note_top;if(a.note_mid)$('#bScentMid').value=a.note_mid;if(a.note_base)$('#bScentBase').value=a.note_base;}refreshSheet();});
-['bFragOz','bEOOz'].forEach(id=>$('#'+id).addEventListener('input',refreshSheet));
-$('#bEO').addEventListener('change',refreshSheet);
 $('#sheetMold').addEventListener('change',()=>{const m=MOLD.find(x=>x.id===$('#sheetMold').value);if(m)$('#bBars').value=m.bars;refreshSheet();});
 
 function addinCost(){
   let cost=0,list=[];
-  const frag=ADDIN.find(a=>a.id===$('#bFrag').value);if(frag){const oz=num($('#bFragOz').value);const c=oz*num(frag.cost);cost+=c;list.push({addin_id:frag.id,type:'fragrance',name:frag.name,oz,cost:c});}
-  const eo=ADDIN.find(a=>a.id===$('#bEO').value);if(eo){const oz=num($('#bEOOz').value);const c=oz*num(eo.cost);cost+=c;list.push({addin_id:eo.id,type:'eo',name:eo.name,oz,cost:c});}
+  fragSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return;const oz=num(s.oz);const c=oz*num(a.cost);cost+=c;list.push({addin_id:a.id,type:'fragrance',name:a.name,oz,cost:c});});
+  eoSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return;const oz=num(s.oz);const c=oz*num(a.cost);cost+=c;list.push({addin_id:a.id,type:'eo',name:a.name,oz,cost:c});});
   micaSel.forEach(id=>{const m=ADDIN.find(a=>a.id===id);if(m){cost+=num(m.cost);list.push({addin_id:m.id,type:'mica',name:m.name,cost:num(m.cost)});}});
   return {cost,list};
 }
@@ -484,14 +534,15 @@ $('#bSave').onclick=async()=>{
   const bars=num($('#bBars').value)||m.bars;
   const lyeIng=ingByName(f.lyeType==='KOH'?'Potassium Hydroxide (KOH)':'Sodium Hydroxide (NaOH)');
   const waterIng=ingByName('Distilled Water');
-  const frag=ADDIN.find(a=>a.id===$('#bFrag').value);
+  const fragNames=fragSel.map(s=>{const a=ADDIN.find(x=>x.id===s.id);return a?a.name:'';}).filter(Boolean);
+  const fragManufs=[...new Set(fragSel.map(s=>{const a=ADDIN.find(x=>x.id===s.id);return a?(a.supplier||''):'';}).filter(Boolean))];
   const computed={oils:f.oilLines,lye_g:f.lyeG,lye_ing:lyeIng?lyeIng.id:null,water_g:f.waterG,water_ing:waterIng?waterIng.id:null,
     oils_lye_cost:f.totalCost,addin_cost:ad.cost,total_cost:grand,cost_per_bar:bars>0?grand/bars:0};
   const rec={
     recipe_id:chosenRec.id, recipe_name:chosenRec.name, mold_id:m.id, bars_made:bars, made_on:$('#bDate').value,
     snapshot:{name:chosenRec.name,superfat:chosenRec.superfat,lye_type:chosenRec.lye_type,water_method:chosenRec.water_method,lye_conc:chosenRec.lye_conc,water_disc:chosenRec.water_disc,water_pct:chosenRec.water_pct,ingredients:chosenRec.ingredients},
     overrides:[], computed, addins:ad.list, photos:batchPhotos,
-    fragrance_name:frag?frag.name:'', fragrance_manuf:frag?(frag.supplier||''):'',
+    fragrance_name:fragNames.join(' + '), fragrance_manuf:fragManufs.join(' + '),
     topping:$('#bTopping').value, appearance:$('#bAppearance').value,
     scent_top:$('#bScentTop').value, scent_mid:$('#bScentMid').value, scent_base:$('#bScentBase').value,
     earliest_ready:$('#bReady').value||null, superfat:f.sf, notes_craft:$('#bNotes').value, logged_by:$('#whoEmail').textContent
