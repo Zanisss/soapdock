@@ -504,7 +504,12 @@ window.renderPickList=()=>{
     supEl.innerHTML=chip('*','All',pool.length)+sups.map(s=>chip(s,s,pool.filter(a=>(a.supplier||'').trim()===s).length)).join('');
   } else { supEl.style.display='none'; }
   const scoped=pickSupplier==='*'?pool:pool.filter(a=>(a.supplier||'').trim()===pickSupplier);
-  const items=scoped.filter(a=>(!q||[a.name,a.supplier,a.notes,a.note_top,a.note_mid,a.note_base].some(f=>(f||'').toLowerCase().includes(q))));
+  const toks=q.split(/\s+/).filter(Boolean);
+  const items=scoped.filter(a=>{
+    if(!toks.length)return true;
+    const hay=[a.name,a.supplier,a.notes,a.note_top,a.note_mid,a.note_base].map(f=>(f||'').toLowerCase()).join(' \u0001 ');
+    return toks.every(t=>hay.includes(t));
+  });
   const selIds=pickSelIds();
   $('#micaCount').textContent=selIds.length?selIds.length+' selected':'';
   $('#micaList').innerHTML=items.length?items.map(m=>{
