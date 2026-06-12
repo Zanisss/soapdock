@@ -721,8 +721,8 @@ function readoutHTML(f,r,m,addin){
     ${qualitiesHTML(f.soapQ)}
     <table style="margin-top:10px"><thead><tr><th>Ingredient</th><th class="num">%</th><th class="num">Amount</th><th class="num">Cost</th></tr></thead><tbody>${rowsHtml}${addinRows}</tbody>
     <tfoot>
-      <tr style="border-top:2px solid var(--line)"><td class="mono dim" style="white-space:nowrap">Oils total</td><td class="num mono">${Math.round(f.oilPctSum)}%</td><td class="num mono" style="font-weight:700;white-space:nowrap">${f.base.toFixed(1)} g <span class="dim" style="font-size:11px">· ${(f.base/28.3495).toFixed(1)} oz</span></td><td></td></tr>
-      <tr><td class="mono dim" style="white-space:nowrap">Total batter</td><td></td><td class="num mono" style="font-weight:700;color:var(--accent);white-space:nowrap">${(f.base+f.lyeG+f.waterG).toFixed(1)} g <span class="dim" style="font-size:11px">· ${((f.base+f.lyeG+f.waterG)/28.3495).toFixed(1)} oz</span></td><td class="num mono">${money(f.totalCost)}</td></tr>
+      <tr style="border-top:2px solid var(--line)"><td class="mono dim" style="white-space:nowrap">Oils total <span style="font-size:11px">· ${(f.base/28.3495).toFixed(1)} oz</span></td><td class="num mono">${Math.round(f.oilPctSum)}%</td><td class="num mono" style="font-weight:700;white-space:nowrap">${f.base.toFixed(1)} g</td><td></td></tr>
+      <tr><td class="mono dim" style="white-space:nowrap">Total batter <span style="font-size:11px">· ${((f.base+f.lyeG+f.waterG)/28.3495).toFixed(1)} oz</span></td><td></td><td class="num mono" style="font-weight:700;color:var(--accent);white-space:nowrap">${(f.base+f.lyeG+f.waterG).toFixed(1)} g</td><td class="num mono">${money(f.totalCost)}</td></tr>
     </tfoot></table>
     ${f.warnings.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')}
   </div>`;
