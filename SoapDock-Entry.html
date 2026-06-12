@@ -234,6 +234,7 @@
   <div class="pick-sheet">
     <div class="pick-top"><b id="pickTitle">Pick</b><span class="dim" id="micaCount"></span></div>
     <div class="pick-search"><input id="micaSearch" placeholder="Search…" oninput="renderPickList()"></div>
+    <div id="pickSup" style="display:none;gap:6px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line)"></div>
     <div class="pick-list" id="micaList"></div>
     <button type="button" class="pick-done" onclick="closePicker()">Done</button>
   </div>
@@ -462,10 +463,12 @@ function fillScentFromBlend(){
 }
 
 // ---- generalized bottom-sheet picker (micas / fragrances / EOs) ----
-let pickType='mica';
+let pickType='mica', pickSupplier='*';
 const PICK_TITLES={mica:'Pick micas',fragrance:'Pick fragrances',eo:'Pick essential oils',additive:'Pick additives'};
 window.openPicker=t=>{pickType=t;$('#pickTitle').textContent=PICK_TITLES[t];$('#micaSearch').value='';
+  pickSupplier=localStorage.getItem('sd_sup_'+t)||'*';
   $('#micaSearch').placeholder=t==='mica'?'Search colors…':'Search scents…';renderPickList();$('#micaSheet').classList.add('show');};
+window.setPickSup=s=>{pickSupplier=s;localStorage.setItem('sd_sup_'+pickType,s);renderPickList();};
 window.openMicaPicker=()=>openPicker('mica');
 window.closePicker=()=>{$('#micaSheet').classList.remove('show');};
 window.closeMicaPicker=window.closePicker;
@@ -473,7 +476,16 @@ function pickSelIds(){if(pickType==='mica')return micaSel;if(pickType==='additiv
 window.renderPickList=()=>{
   const q=($('#micaSearch').value||'').toLowerCase();
   const pool=pickType==='additive'?ING.filter(a=>a.category==='additive'):ADDIN.filter(a=>a.type===pickType);
-  const items=pool.filter(a=>(!q||a.name.toLowerCase().includes(q)||(a.supplier||'').toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
+  const sups=[...new Set(pool.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
+  if(pickSupplier!=='*'&&!sups.includes(pickSupplier))pickSupplier='*';
+  const supEl=$('#pickSup');
+  if(sups.length>1){
+    supEl.style.display='flex';
+    const chip=(val,label,n)=>`<span onclick="setPickSup('${val.replace(/'/g,"\\'")}')" style="cursor:pointer;font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:99px;border:1px solid ${pickSupplier===val?'var(--accent)':'var(--line)'};color:${pickSupplier===val?'var(--accent)':'var(--dim)'};white-space:nowrap">${esc(label)}${n!=null?' · '+n:''}</span>`;
+    supEl.innerHTML=chip('*','All',pool.length)+sups.map(s=>chip(s,s,pool.filter(a=>(a.supplier||'').trim()===s).length)).join('');
+  } else { supEl.style.display='none'; }
+  const scoped=pickSupplier==='*'?pool:pool.filter(a=>(a.supplier||'').trim()===pickSupplier);
+  const items=scoped.filter(a=>(!q||a.name.toLowerCase().includes(q)||(a.supplier||'').toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
   const selIds=pickSelIds();
   $('#micaCount').textContent=selIds.length?selIds.length+' selected':'';
   $('#micaList').innerHTML=items.length?items.map(m=>{

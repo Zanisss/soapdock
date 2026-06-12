@@ -381,7 +381,10 @@
         <div><button class="btn" id="adSave">Save add-in</button> <button class="btn ghost" id="adClear" style="display:none">Cancel</button></div>
       </div>
       <div class="card" style="flex:1.6;min-width:360px">
-        <h2>Add-in library <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="adTotalCount"></span></h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <h2 style="margin:0">Add-in library <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="adTotalCount"></span></h2>
+          <select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select>
+        </div>
         <div id="adGroups"></div>
         <div class="empty" id="adEmpty">No add-ins yet.</div>
       </div>
@@ -587,6 +590,7 @@ function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();r
 // ---- ADD-INS (fragrances / EOs / micas) ----
 const ADDIN_TYPES=[['fragrance','Fragrances'],['eo','Essential Oils'],['mica','Micas']];
 let editAddin=null;
+$('#adSupFilter').onchange=()=>renderAddins();
 function adCostLabelFor(t){return t==='mica'?'Cost per ¼ tsp ($)':'Cost per oz ($)';}
 $('#adType').onchange=()=>{const t=$('#adType').value;$('#adCostLabel').textContent=adCostLabelFor(t);
   const isMica=t==='mica';
@@ -596,9 +600,15 @@ $('#adType').onchange=()=>{const t=$('#adType').value;$('#adCostLabel').textCont
 function renderAddins(){
   $('#adEmpty').style.display=ADDIN.length?'none':'block';
   $('#adTotalCount').textContent=ADDIN.length?'· '+ADDIN.length+' total':'';
+  const supSel=$('#adSupFilter');
+  const sups=[...new Set(ADDIN.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
+  const cur=supSel.value||'*';
+  supSel.innerHTML='<option value="*">All suppliers</option>'+sups.map(s=>`<option value="${esc(s)}" ${s===cur?'selected':''}>${esc(s)}</option>`).join('');
+  if(cur!=='*'&&!sups.includes(cur))supSel.value='*';
+  const supFilter=supSel.value||'*';
   let html='';
   ADDIN_TYPES.forEach(([t,label])=>{
-    const items=ADDIN.filter(a=>a.type===t);if(!items.length)return;
+    const items=ADDIN.filter(a=>a.type===t&&(supFilter==='*'||(a.supplier||'').trim()===supFilter));if(!items.length)return;
     const unit=t==='mica'?'/¼tsp':'/oz';
     const rows=items.map(a=>{const noteStr=t==='mica'?(a.notes||''):[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ');
       const sw=a.image_url?`<img src="${esc(a.image_url)}" class="swatch" loading="lazy" onerror="this.style.display='none'">`:'';
