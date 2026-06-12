@@ -317,7 +317,7 @@
           <h2 id="ingFormTitle">New ingredient</h2>
           <div class="field"><label>Name</label><input id="iName" placeholder="e.g. Olive Oil"></div>
           <div class="field"><label>Category</label>
-            <select id="iCat"><option value="oil">Oil / Butter</option><option value="wax">Wax</option><option value="lye">Lye</option><option value="liquid">Liquid</option><option value="fragrance">Fragrance</option><option value="additive">Additive</option><option value="other">Other</option></select>
+            <select id="iCat"><option value="oil">Oil / Butter</option><option value="wax">Wax</option><option value="lye">Lye</option><option value="liquid">Liquid</option><option value="additive">Additive</option><option value="other">Other</option></select>
           </div>
           <div class="field" id="iSapWrap"><label>SAP value (NaOH)</label><input id="iSap" type="number" step="0.0001" value="0">
             <div class="hint">Saponification value — needed for oils to compute lye. (Olive ≈ 0.134)</div></div>
@@ -366,7 +366,7 @@
       <div class="card" style="flex:1;min-width:300px">
         <h2 id="adFormTitle">New add-in</h2>
         <div class="field"><label>Type</label>
-          <select id="adType"><option value="fragrance">Fragrance</option><option value="eo">Essential Oil</option><option value="mica">Mica</option></select></div>
+          <select id="adType"><option value="eo">Essential Oil</option><option value="mica">Mica</option></select></div>
         <div class="field"><label>Name</label><input id="adName" placeholder="e.g. Green Clover & Aloe"></div>
         <div class="field"><label>Supplier</label><input id="adSupplier" placeholder="e.g. Nature's Garden"></div>
         <div class="field"><label>Image URL <span class="dim" style="font-weight:400">(optional swatch)</span></label><input id="adImg" placeholder="https://…/swatch.jpg"></div>
@@ -984,9 +984,10 @@ function clearMoldForm(){editMold=null;$('#moName').value='';$('#moOil').value='
 // ---- INGREDIENTS ----
 let editIng=null;
 $('#iCat').onchange=()=>{$('#iSapWrap').style.display=$('#iCat').value==='oil'?'block':'none';};
-const CAT_ORDER=['oil','wax','lye','liquid','fragrance','additive','other'];
+const CAT_ORDER=['oil','wax','lye','liquid','additive','other'];  // fragrances live in Add-Ins now
 const CAT_NAME={oil:'Oils / Butters',wax:'Waxes',lye:'Lye',liquid:'Liquids',fragrance:'Fragrances',additive:'Additives',other:'Other'};
 function renderIngredients(){
+  ING.forEach(i=>{if(i.category==='fragrance')i.category='other';});
   $('#ingEmpty').style.display=ING.length?'none':'block';
   $('#ingTotalCount').textContent=ING.length?'· '+ING.length+' total':'';
   const byCat={};ING.forEach(i=>{const c=i.category||'other';(byCat[c]=byCat[c]||[]).push(i);});

@@ -154,6 +154,7 @@
             <div class="addin-rows" id="bEORows"></div>
           </div>
           <div class="field"><label>Micas used</label><div class="mica-chips" id="bMicaChips"></div></div>
+          <div class="field"><label>Additives</label><div class="addin-rows" id="bAddRows"></div></div>
         </div>
 
         <div class="card">
@@ -276,7 +277,7 @@ async function loadTheme(){
 try{const c=localStorage.getItem('sd_theme');if(c)applyTheme(c);}catch(e){}
 
 let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[];
-let chosenRec=null, micaSel=[], fragSel=[], eoSel=[], batchPhotos=[];
+let chosenRec=null, micaSel=[], fragSel=[], eoSel=[], addSel=[], batchPhotos=[];
 const $=s=>document.querySelector(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
 const CAT_COLOR={oil:'var(--accent)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',fragrance:'var(--warn)',additive:'var(--good)',other:'var(--dim)'};
@@ -395,7 +396,7 @@ function renderRecipeCards(){
 
 window.pickRecipe=id=>{
   chosenRec=REC.find(x=>x.id===id);if(!chosenRec)return;
-  micaSel=[];fragSel=[];eoSel=[];batchPhotos=[];
+  micaSel=[];fragSel=[];eoSel=[];addSel=[];batchPhotos=[];
   $('#logStep1').style.display='none';
   $('#logStep2').style.display='block';
   $('#saveBar').style.display='block';
@@ -411,7 +412,7 @@ window.pickRecipe=id=>{
 };
 $('#logBack').onclick=()=>{$('#logStep2').style.display='none';$('#saveBar').style.display='none';$('#logStep1').style.display='block';chosenRec=null;};
 
-function fillAddins(){renderFragRows();renderEORows();renderMicaChips();}
+function fillAddins(){renderFragRows();renderEORows();renderMicaChips();renderAddRows();}
 function micaSwatch(m,cls){return m.image_url?`<img class="${cls||''}" src="${esc(m.image_url)}" loading="lazy" onerror="this.style.visibility='hidden'">`:(cls==='ph-ok'?'':`<span class="ph"></span>`);}
 
 // ---- fragrance / EO blend rows ----
@@ -433,6 +434,16 @@ function renderEORows(){
   $('#bEORows').innerHTML=addinRowsHTML(eoSel,'eo')+
     `<button type="button" class="addin-add" onclick="openPicker('eo')">+ Add essential oil</button>`;
 }
+function renderAddRows(){
+  $('#bAddRows').innerHTML=addSel.map((s,i)=>{const a=ING.find(x=>x.id===s.id);if(!a)return'';
+    return `<div class="addin-row"><span class="ph" style="background:var(--good);opacity:.18"></span>
+      <div class="info"><div class="nm">${esc(a.name)}</div><div class="meta">additive</div></div>
+      <input class="oz" type="text" placeholder="amt" style="width:96px;text-align:right" value="${esc(s.amt||'')}" oninput="setAddAmt(${i},this.value)">
+      <span class="x" onclick="removeAddRow(${i})">×</span></div>`;}).join('')+
+    `<button type="button" class="addin-add" onclick="openPicker('additive')">+ Add additive</button>`;
+}
+window.setAddAmt=(i,v)=>{if(addSel[i])addSel[i].amt=v;};
+window.removeAddRow=i=>{addSel.splice(i,1);renderAddRows();refreshSheet();};
 window.setAddinOz=(type,i,v)=>{const sel=type==='fragrance'?fragSel:eoSel;if(sel[i])sel[i].oz=v;refreshSheet();};
 window.removeAddinRow=(type,i)=>{const sel=type==='fragrance'?fragSel:eoSel;sel.splice(i,1);
   if(type==='fragrance'){renderFragRows();fillScentFromBlend();}else renderEORows();refreshSheet();};
@@ -452,16 +463,17 @@ function fillScentFromBlend(){
 
 // ---- generalized bottom-sheet picker (micas / fragrances / EOs) ----
 let pickType='mica';
-const PICK_TITLES={mica:'Pick micas',fragrance:'Pick fragrances',eo:'Pick essential oils'};
+const PICK_TITLES={mica:'Pick micas',fragrance:'Pick fragrances',eo:'Pick essential oils',additive:'Pick additives'};
 window.openPicker=t=>{pickType=t;$('#pickTitle').textContent=PICK_TITLES[t];$('#micaSearch').value='';
   $('#micaSearch').placeholder=t==='mica'?'Search colors…':'Search scents…';renderPickList();$('#micaSheet').classList.add('show');};
 window.openMicaPicker=()=>openPicker('mica');
 window.closePicker=()=>{$('#micaSheet').classList.remove('show');};
 window.closeMicaPicker=window.closePicker;
-function pickSelIds(){return pickType==='mica'?micaSel:(pickType==='fragrance'?fragSel:eoSel).map(s=>s.id);}
+function pickSelIds(){if(pickType==='mica')return micaSel;if(pickType==='additive')return addSel.map(s=>s.id);return (pickType==='fragrance'?fragSel:eoSel).map(s=>s.id);}
 window.renderPickList=()=>{
   const q=($('#micaSearch').value||'').toLowerCase();
-  const items=ADDIN.filter(a=>a.type===pickType&&(!q||a.name.toLowerCase().includes(q)||(a.supplier||'').toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
+  const pool=pickType==='additive'?ING.filter(a=>a.category==='additive'):ADDIN.filter(a=>a.type===pickType);
+  const items=pool.filter(a=>(!q||a.name.toLowerCase().includes(q)||(a.supplier||'').toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
   const selIds=pickSelIds();
   $('#micaCount').textContent=selIds.length?selIds.length+' selected':'';
   $('#micaList').innerHTML=items.length?items.map(m=>{
@@ -473,6 +485,8 @@ window.renderPickList=()=>{
 window.renderMicaList=window.renderPickList;
 window.togglePickRow=id=>{
   if(pickType==='mica'){const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);else micaSel.push(id);renderMicaChips();}
+  else if(pickType==='additive'){const i=addSel.findIndex(s=>s.id===id);
+    if(i>=0)addSel.splice(i,1);else addSel.push({id,amt:''});renderAddRows();}
   else{const sel=pickType==='fragrance'?fragSel:eoSel;const i=sel.findIndex(s=>s.id===id);
     if(i>=0)sel.splice(i,1);else sel.push({id,oz:''});
     if(pickType==='fragrance'){renderFragRows();fillScentFromBlend();}else renderEORows();}
@@ -494,6 +508,7 @@ function addinCost(){
   fragSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return;const oz=num(s.oz);const c=oz*num(a.cost);cost+=c;list.push({addin_id:a.id,type:'fragrance',name:a.name,oz,cost:c});});
   eoSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return;const oz=num(s.oz);const c=oz*num(a.cost);cost+=c;list.push({addin_id:a.id,type:'eo',name:a.name,oz,cost:c});});
   micaSel.forEach(id=>{const m=ADDIN.find(a=>a.id===id);if(m){cost+=num(m.cost);list.push({addin_id:m.id,type:'mica',name:m.name,cost:num(m.cost)});}});
+  addSel.forEach(s=>{const a=ING.find(x=>x.id===s.id);if(a)list.push({ingredient_id:a.id,type:'additive',name:a.name,amt:s.amt||'',cost:0});});
   return {cost,list};
 }
 
