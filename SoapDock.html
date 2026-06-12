@@ -837,7 +837,8 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
   const oils=(c.oils||[]).map(o=>`<tr><td>${esc(o.name)}</td><td class="num">${num(o.g).toFixed(1)} g</td></tr>`).join('');
   const ov=(b.overrides||[]).map(o=>{const ing=ingById(o.ingredient_id);return ing?`<li>${esc(ing.name)} — ${o.mode==='mark'?'✓':(o.mode==='pct'?o.pct+'%':o.amt+' '+o.mode)}</li>`:'';}).join('');
   $('#batchDetail').innerHTML=`
-    <h2>${esc(b.batch_name||b.recipe_name)} <span class="pill sd" style="margin-left:8px">${b.made_on}</span></h2>
+    <h2>${esc(b.batch_name||b.recipe_name)} <span class="pill sd" style="margin-left:8px">${b.made_on}</span>
+      <button class="btn ghost sm" style="margin-left:12px" onclick="editBatchFields('${b.id}')">edit</button></h2>
     <div class="costline"><span><span class="k">Recipe</span> <b>${esc(b.snapshot?b.snapshot.name:'')}</b></span><span><span class="k">Mold</span> <b>${m?esc(m.name):'—'}</b></span><span><span class="k">Bars made</span> <b>${b.bars_made}</b></span><span><span class="k">Cost/bar</span> <span class="use">${money(num(c.cost_per_bar))}</span></span></div>
     <div class="row" style="margin-top:14px">
       <div style="flex:1;min-width:240px"><h3>Oils</h3><table>${oils}</table>
@@ -874,6 +875,40 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
       <span id="batchPhotoStatus" class="dim mono" style="font-size:11px;margin-left:8px"></span>
     </div>`;
   renderBatchPhotos(b);
+};
+window.editBatchFields=id=>{
+  const b=BAT.find(x=>x.id===id);if(!b)return;
+  const F=(label,fid,val,type)=>`<div class="field"><label>${label}</label><input id="${fid}" type="${type||'text'}" value="${esc(val||'')}"></div>`;
+  $('#batchDetail').innerHTML=`
+    <h2>Edit batch <span class="pill sd" style="margin-left:8px">${esc(b.batch_name||b.recipe_name)}</span></h2>
+    <div class="grid4" style="margin-top:14px">
+      ${F('Batch name','ebName',b.batch_name)}
+      ${F('Date made','ebDate',b.made_on,'date')}
+      ${F('Bars made','ebBars',b.bars_made,'number')}
+      ${F('Earliest ready','ebReady',b.earliest_ready,'date')}
+    </div>
+    <div class="grid2">
+      ${F('Topping','ebTopping',b.topping)}
+      ${F('Appearance','ebAppearance',b.appearance)}
+    </div>
+    <div class="grid3">
+      ${F('Scent — top','ebTop',b.scent_top)}
+      ${F('Scent — middle','ebMid',b.scent_mid)}
+      ${F('Scent — base','ebBase',b.scent_base)}
+    </div>
+    <div class="field"><label>Craft notes</label><textarea id="ebNotes" rows="3" style="width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:10px;border-radius:8px;font-family:var(--mono)">${esc(b.notes_craft||'')}</textarea></div>
+    <p class="dim mono" style="font-size:11px">Fragrances, micas, additives, and photos are edited from the iPad entry app (edit button on the batch card).</p>
+    <button class="btn primary" onclick="saveBatchFields('${b.id}')">Save changes</button>
+    <button class="btn ghost" onclick="openBatch('${b.id}')">Cancel</button>`;
+};
+window.saveBatchFields=async id=>{
+  const upd={batch_name:$('#ebName').value.trim()||null,made_on:$('#ebDate').value,bars_made:num($('#ebBars').value),
+    earliest_ready:$('#ebReady').value||null,topping:$('#ebTopping').value,appearance:$('#ebAppearance').value,
+    scent_top:$('#ebTop').value,scent_mid:$('#ebMid').value,scent_base:$('#ebBase').value,notes_craft:$('#ebNotes').value};
+  const {error}=await sb.from('batches').update(upd).eq('id',id);
+  if(error){toast('Error: '+error.message);return;}
+  const b=BAT.find(x=>x.id===id);if(b)Object.assign(b,upd);
+  toast('Batch updated');openBatch(id);renderBatches();
 };
 window.saveBatchPh=async id=>{
   const b=BAT.find(x=>x.id===id);if(!b)return;

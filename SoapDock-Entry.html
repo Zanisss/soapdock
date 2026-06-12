@@ -278,7 +278,7 @@ async function loadTheme(){
 try{const c=localStorage.getItem('sd_theme');if(c)applyTheme(c);}catch(e){}
 
 let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[];
-let chosenRec=null, micaSel=[], fragSel=[], eoSel=[], addSel=[], batchPhotos=[];
+let chosenRec=null, editBatchId=null, micaSel=[], fragSel=[], eoSel=[], addSel=[], batchPhotos=[];
 const $=s=>document.querySelector(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
 const CAT_COLOR={oil:'var(--accent)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',fragrance:'var(--warn)',additive:'var(--good)',other:'var(--dim)'};
@@ -410,6 +410,7 @@ function renderRecipeCards(){
 
 window.pickRecipe=id=>{
   chosenRec=REC.find(x=>x.id===id);if(!chosenRec)return;
+  editBatchId=null;$('#bSave').textContent='Log this batch \u2713';
   micaSel=[];fragSel=[];eoSel=[];addSel=[];batchPhotos=[];
   $('#logStep1').style.display='none';
   $('#logStep2').style.display='block';
@@ -646,15 +647,52 @@ $('#bSave').onclick=async()=>{
     earliest_ready:$('#bReady').value||null, ph_tests:[], superfat:f.sf, notes_craft:$('#bNotes').value, logged_by:$('#whoEmail').textContent
   };
   $('#bSave').textContent='Saving…';$('#bSave').disabled=true;
-  const {error}=await sb.from('batches').insert(rec);
-  $('#bSave').textContent='Log this batch ✓';$('#bSave').disabled=false;
+  let error;
+  if(editBatchId){
+    const upd={...rec};delete upd.ph_tests;delete upd.logged_by;
+    ({error}=await sb.from('batches').update(upd).eq('id',editBatchId));
+  } else {
+    ({error}=await sb.from('batches').insert(rec));
+  }
+  $('#bSave').textContent=editBatchId?'Update batch ✓':'Log this batch ✓';$('#bSave').disabled=false;
   if(error){toast('Error: '+error.message);return;}
-  toast('Batch logged! 🧼');
+  toast(editBatchId?'Batch updated ✓':'Batch logged! 🧼');
+  editBatchId=null;$('#bSave').textContent='Log this batch ✓';
   $('#logBack').click();
   await loadAll();
   document.querySelector('nav.tabs button[data-v="hist"]').click();
 };
 
+window.editBatch=id=>{
+  const b=BAT.find(x=>x.id===id);if(!b)return;
+  editBatchId=id;
+  chosenRec=REC.find(r=>r.id===b.recipe_id)||Object.assign({id:b.recipe_id,name:b.recipe_name},b.snapshot||{});
+  document.querySelector('nav.tabs button[data-v="log"]').click();
+  $('#logStep1').style.display='none';
+  $('#logStep2').style.display='block';
+  $('#saveBar').style.display='block';
+  $('#sheetName').textContent=(b.batch_name?b.batch_name+' \u00b7 ':'')+chosenRec.name;
+  $('#sheetMold').innerHTML=MOLD.map(m=>`<option value="${m.id}" ${m.id===b.mold_id?'selected':''}>${esc(m.name)} (${m.total_oil_g}g \u00b7 ${m.bars} bars)</option>`).join('');
+  fragSel=(b.addins||[]).filter(a=>a.type==='fragrance').map(a=>({id:a.addin_id,oz:a.oz||''}));
+  eoSel=(b.addins||[]).filter(a=>a.type==='eo').map(a=>({id:a.addin_id,oz:a.oz||''}));
+  micaSel=(b.addins||[]).filter(a=>a.type==='mica').map(a=>a.addin_id);
+  addSel=(b.addins||[]).filter(a=>a.type==='additive').map(a=>({id:a.ingredient_id,amt:a.amt||'',unit:a.unit||'g'}));
+  batchPhotos=(b.photos||[]).slice();
+  fillAddins();renderPhotoGrid();$('#photoStatus').textContent='';
+  $('#bName').value=b.batch_name||'';
+  $('#bDate').value=b.made_on||todayStr();
+  $('#bBars').value=b.bars_made||'';
+  $('#bReady').value=b.earliest_ready||'';
+  $('#bTopping').value=b.topping||'';
+  $('#bAppearance').value=b.appearance||'';
+  $('#bScentTop').value=b.scent_top||'';
+  $('#bScentMid').value=b.scent_mid||'';
+  $('#bScentBase').value=b.scent_base||'';
+  $('#bNotes').value=b.notes_craft||'';
+  updateCureHints();
+  $('#bSave').textContent='Update batch \u2713';
+  refreshSheet();
+};
 // ---- cure / pH model ----
 const CURE_DAYS=42, PH_CHECK_1=21, PH_CHECK_2=28;
 function addDays(d,n){if(!d)return'';const t=new Date(d+'T00:00:00');t.setDate(t.getDate()+n);return t.toISOString().slice(0,10);}
@@ -739,7 +777,8 @@ function renderHist(){
       ${schedStrip(b)}
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
         <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center">${allPhChips(b)}</div>
-        <button type="button" onclick="togglePhForm('${b.id}')" style="background:var(--accent);color:#04110f;border:none;padding:12px 16px;border-radius:9px;font-weight:700;cursor:pointer;margin-left:auto;white-space:nowrap">+ log pH</button>
+        <button type="button" onclick="editBatch('${b.id}')" style="background:var(--bg);color:var(--dim);border:1px solid var(--line);padding:12px 16px;border-radius:9px;font-weight:700;cursor:pointer;margin-left:auto;white-space:nowrap">edit</button>
+        <button type="button" onclick="togglePhForm('${b.id}')" style="background:var(--accent);color:#04110f;border:none;padding:12px 16px;border-radius:9px;font-weight:700;cursor:pointer;white-space:nowrap">+ log pH</button>
       </div>
       <div id="phf-${b.id}" style="display:none;gap:8px;margin-top:10px;align-items:center">
         <input type="date" id="phd-${b.id}" value="${todayStr()}" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:11px;border-radius:9px;flex:1">
