@@ -363,14 +363,27 @@ $('#logout').onclick=async()=>{try{await sb.auth.signOut({scope:'local'});}catch
 sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT')location.reload();});
 function showApp(s){$('#login').style.display='none';$('#app').style.display='block';$('#whoEmail').textContent=s.user.email;UID=s.user.id;renderThemeDots();loadTheme();loadAll();}
 
+async function fetchAll(table, orderCol, opts){
+  // Supabase/PostgREST caps responses at 1000 rows; page through with .range()
+  const PAGE=1000; let out=[], from=0, error=null;
+  while(true){
+    const q=sb.from(table).select('*').order(orderCol, opts||{}).range(from, from+PAGE-1);
+    const r=await q;
+    if(r.error){error=r.error;break;}
+    out=out.concat(r.data||[]);
+    if(!r.data||r.data.length<PAGE)break;
+    from+=PAGE;
+  }
+  return {data:out, error};
+}
 async function loadAll(){
   const [i,r,b,p,m,a]=await Promise.all([
-    sb.from('ingredients').select('*').order('name'),
-    sb.from('recipes').select('*').order('name'),
-    sb.from('batches').select('*').order('made_on',{ascending:false}),
-    sb.from('purchases').select('*').order('bought_on',{ascending:false}),
-    sb.from('molds').select('*').order('total_oil_g',{ascending:false}),
-    sb.from('addins').select('*').order('name')
+    fetchAll('ingredients','name'),
+    fetchAll('recipes','name'),
+    fetchAll('batches','made_on',{ascending:false}),
+    fetchAll('purchases','bought_on',{ascending:false}),
+    fetchAll('molds','total_oil_g',{ascending:false}),
+    fetchAll('addins','name')
   ]);
   ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];
   renderRecipeCards();renderHist();renderRecipeList();
