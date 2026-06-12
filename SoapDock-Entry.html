@@ -448,15 +448,21 @@ function renderEORows(){
   $('#bEORows').innerHTML=addinRowsHTML(eoSel,'eo')+
     `<button type="button" class="addin-add" onclick="openPicker('eo')">+ Add essential oil</button>`;
 }
+const ADD_UNITS=['g','oz','lb','tsp','Tbsp'];
+const ADD_G={g:1,oz:28.3495,lb:453.592};  // tsp/Tbsp: no density data, logged uncosted
+function addGrams(s){return ADD_G[s.unit]!=null?num(s.amt)*ADD_G[s.unit]:0;}
 function renderAddRows(){
   $('#bAddRows').innerHTML=addSel.map((s,i)=>{const a=ING.find(x=>x.id===s.id);if(!a)return'';
+    const opts=ADD_UNITS.map(u=>`<option value="${u}" ${s.unit===u?'selected':''}>${u}</option>`).join('');
     return `<div class="addin-row"><span class="ph" style="background:var(--good);opacity:.18"></span>
       <div class="info"><div class="nm">${esc(a.name)}</div><div class="meta">additive</div></div>
-      <input class="oz" type="text" placeholder="amt" style="width:96px;text-align:right" value="${esc(s.amt||'')}" oninput="setAddAmt(${i},this.value)">
+      <input class="oz" type="number" inputmode="decimal" step="0.01" placeholder="amt" style="width:74px;text-align:right" value="${esc(s.amt||'')}" oninput="setAddAmt(${i},this.value)">
+      <select onchange="setAddUnit(${i},this.value)" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:11px 6px;border-radius:9px;font-family:var(--mono);font-size:14px">${opts}</select>
       <span class="x" onclick="removeAddRow(${i})">×</span></div>`;}).join('')+
     `<button type="button" class="addin-add" onclick="openPicker('additive')">+ Add additive</button>`;
 }
-window.setAddAmt=(i,v)=>{if(addSel[i])addSel[i].amt=v;};
+window.setAddAmt=(i,v)=>{if(addSel[i]){addSel[i].amt=v;refreshSheet();}};
+window.setAddUnit=(i,v)=>{if(addSel[i]){addSel[i].unit=v;refreshSheet();}};
 window.removeAddRow=i=>{addSel.splice(i,1);renderAddRows();refreshSheet();};
 window.setAddinOz=(type,i,v)=>{const sel=type==='fragrance'?fragSel:eoSel;if(sel[i])sel[i].oz=v;refreshSheet();};
 window.removeAddinRow=(type,i)=>{const sel=type==='fragrance'?fragSel:eoSel;sel.splice(i,1);
@@ -498,7 +504,7 @@ window.renderPickList=()=>{
     supEl.innerHTML=chip('*','All',pool.length)+sups.map(s=>chip(s,s,pool.filter(a=>(a.supplier||'').trim()===s).length)).join('');
   } else { supEl.style.display='none'; }
   const scoped=pickSupplier==='*'?pool:pool.filter(a=>(a.supplier||'').trim()===pickSupplier);
-  const items=scoped.filter(a=>(!q||a.name.toLowerCase().includes(q)||(a.supplier||'').toLowerCase().includes(q)||(a.notes||'').toLowerCase().includes(q)));
+  const items=scoped.filter(a=>(!q||[a.name,a.supplier,a.notes,a.note_top,a.note_mid,a.note_base].some(f=>(f||'').toLowerCase().includes(q))));
   const selIds=pickSelIds();
   $('#micaCount').textContent=selIds.length?selIds.length+' selected':'';
   $('#micaList').innerHTML=items.length?items.map(m=>{
@@ -511,7 +517,7 @@ window.renderMicaList=window.renderPickList;
 window.togglePickRow=id=>{
   if(pickType==='mica'){const i=micaSel.indexOf(id);if(i>=0)micaSel.splice(i,1);else micaSel.push(id);renderMicaChips();}
   else if(pickType==='additive'){const i=addSel.findIndex(s=>s.id===id);
-    if(i>=0)addSel.splice(i,1);else addSel.push({id,amt:''});renderAddRows();}
+    if(i>=0)addSel.splice(i,1);else addSel.push({id,amt:'',unit:'g'});renderAddRows();}
   else{const sel=pickType==='fragrance'?fragSel:eoSel;const i=sel.findIndex(s=>s.id===id);
     if(i>=0)sel.splice(i,1);else sel.push({id,oz:''});
     if(pickType==='fragrance'){renderFragRows();fillScentFromBlend();}else renderEORows();}
@@ -533,7 +539,9 @@ function addinCost(){
   fragSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return;const oz=num(s.oz);const c=oz*num(a.cost);cost+=c;list.push({addin_id:a.id,type:'fragrance',name:a.name,oz,cost:c});});
   eoSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return;const oz=num(s.oz);const c=oz*num(a.cost);cost+=c;list.push({addin_id:a.id,type:'eo',name:a.name,oz,cost:c});});
   micaSel.forEach(id=>{const m=ADDIN.find(a=>a.id===id);if(m){cost+=num(m.cost);list.push({addin_id:m.id,type:'mica',name:m.name,cost:num(m.cost)});}});
-  addSel.forEach(s=>{const a=ING.find(x=>x.id===s.id);if(a)list.push({ingredient_id:a.id,type:'additive',name:a.name,amt:s.amt||'',cost:0});});
+  addSel.forEach(s=>{const a=ING.find(x=>x.id===s.id);if(!a)return;
+    const g=addGrams(s);const c=g>0?g*costPerG(a):0;cost+=c;
+    list.push({ingredient_id:a.id,type:'additive',name:a.name,amt:s.amt||'',unit:s.unit||'g',cost:c});});
   return {cost,list};
 }
 
@@ -545,7 +553,8 @@ function refreshSheet(){
   const grand=f.totalCost+ad.cost;
   if(!$('#bBars').value)$('#bBars').value=m.bars;
   const rows=f.rows.map(x=>`<tr><td><span class="dot" style="background:${CAT_COLOR[x.cat]||'var(--dim)'}"></span>${esc(x.name)}</td><td class="num dim">${x.mode==='pct'&&x.pct?x.pct+'%':''}</td><td class="num">${x.disp}</td></tr>`).join('');
-  const adRows=ad.list.length?ad.list.map(a=>`<tr><td><span class="dot" style="background:var(--warn)"></span>${esc(a.name)} <span class="dim">${a.type==='mica'?'(¼ tsp)':'('+a.oz+' oz)'}</span></td><td></td><td class="num dim">${money(a.cost)}</td></tr>`).join(''):'';
+  const adRows=ad.list.length?ad.list.map(a=>{const amt=a.type==='mica'?'¼ tsp':(a.type==='additive'?(a.amt||'?')+' '+(a.unit||''):a.oz+' oz');
+    return `<tr><td><span class="dot" style="background:${a.type==='additive'?'var(--good)':'var(--warn)'}"></span>${esc(a.name)} <span class="dim">(${amt})</span></td><td></td><td class="num dim">${money(a.cost)}</td></tr>`;}).join(''):'';
   $('#sheetReadout').innerHTML=`
     <div class="ro-head" style="margin-top:16px">
       <span><span class="k">Lye (${f.lyeType})</span><b>${f.lyeG.toFixed(1)} g</b></span>
