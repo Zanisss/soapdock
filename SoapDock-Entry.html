@@ -458,7 +458,7 @@ function renderAddRows(){
     return `<div class="addin-row"><span class="ph" style="display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M9 3v7.5L5 20h14l-4-9.5V3"/></svg></span>
       <div class="info"><div class="nm">${esc(a.name)}</div><div class="meta">additive</div></div>
       <input class="oz" type="number" inputmode="decimal" step="0.01" placeholder="amt" style="width:68px;text-align:right;flex:0 0 auto" value="${esc(s.amt||'')}" oninput="setAddAmt(${i},this.value)">
-      <select onchange="setAddUnit(${i},this.value)" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:11px 6px;border-radius:9px;font-family:var(--mono);font-size:14px;flex:0 0 auto;min-width:60px">${opts}</select>
+      <select onchange="setAddUnit(${i},this.value)" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:11px 6px;border-radius:9px;font-family:var(--mono);font-size:14px;flex:0 0 auto;width:auto;max-width:80px">${opts}</select>
       <span class="x" onclick="removeAddRow(${i})">×</span></div>`;}).join('')+
     `<button type="button" class="addin-add" onclick="openPicker('additive')">+ Add additive</button>`;
 }
@@ -486,12 +486,22 @@ function fillScentFromBlend(){
 let pickType='mica', pickSupplier='*';
 const PICK_TITLES={mica:'Pick micas',fragrance:'Pick fragrances',eo:'Pick essential oils',additive:'Pick additives'};
 function adjustPickSheet(){
-  const sheet=document.querySelector('.pick-sheet');
-  if(!sheet)return;
-  const vh=window.visualViewport?window.visualViewport.height:window.innerHeight;
-  sheet.style.maxHeight=Math.floor(vh*0.88)+'px';
+  const overlay=document.getElementById('micaSheet');
+  const sheet=overlay?overlay.querySelector('.pick-sheet'):null;
+  if(!overlay||!sheet)return;
+  if(window.visualViewport){
+    const vv=window.visualViewport;
+    overlay.style.top=vv.offsetTop+'px';
+    overlay.style.left=vv.offsetLeft+'px';
+    overlay.style.width=vv.width+'px';
+    overlay.style.height=vv.height+'px';
+    sheet.style.maxHeight=Math.floor(vv.height*0.88)+'px';
+  }
 }
-if(window.visualViewport){window.visualViewport.addEventListener('resize',adjustPickSheet);}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',adjustPickSheet);
+  window.visualViewport.addEventListener('scroll',adjustPickSheet);
+}
 window.openPicker=t=>{pickType=t;$('#pickTitle').textContent=PICK_TITLES[t];$('#micaSearch').value='';
   pickSupplier=localStorage.getItem('sd_sup_'+t)||'*';
   $('#micaSearch').placeholder=t==='mica'?'Search colors…':'Search scents…';renderPickList();$('#micaSheet').classList.add('show');adjustPickSheet();};
