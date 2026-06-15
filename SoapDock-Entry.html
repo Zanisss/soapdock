@@ -93,8 +93,10 @@
   .mrow img,.mrow .ph{width:44px;height:44px;border-radius:9px;object-fit:cover;border:1px solid var(--line);flex:0 0 auto;background:var(--panel2)}
   .mrow .nm{font-size:15px}
   .mrow.on{background:var(--panel2)}
-  .mrow .chk{margin-left:auto;color:var(--accent);font-weight:700;font-size:18px;visibility:hidden}
-  .mrow.on .chk{visibility:visible}
+  .mrow .chk{margin-left:auto;flex:0 0 auto;width:26px;height:26px;border-radius:7px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:#04110f;font-weight:700;font-size:16px;background:transparent;transition:.1s}
+  .mrow.on .chk{background:var(--accent);border-color:var(--accent)}
+  .mrow .chk span{visibility:hidden}
+  .mrow.on .chk span{visibility:visible}
   .pick-done{margin:10px 16px calc(14px + env(safe-area-inset-bottom,0px));padding:15px;background:var(--accent);color:#04110f;border:none;border-radius:10px;font-weight:700;font-size:16px;cursor:pointer}
   nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--panel);border-top:1px solid var(--line);display:flex;padding:8px 8px env(safe-area-inset-bottom,8px)}
   nav.tabs button{flex:1;background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:12px;padding:10px 4px;cursor:pointer;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -469,7 +471,7 @@ function renderAddRows(){
       <div class="info" style="flex:1 1 120px"><div class="nm">${esc(a.name)}</div><div class="meta">additive</div></div>
       <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
         <input class="oz" type="number" inputmode="decimal" step="0.01" placeholder="amt" style="width:84px;text-align:center" value="${esc(s.amt||'')}" oninput="setAddAmt(${i},this.value)">
-        <select onchange="setAddUnit(${i},this.value)" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px 10px;border-radius:9px;font-family:var(--mono);font-size:15px;flex:0 0 auto">${opts}</select>
+        <select onchange="setAddUnit(${i},this.value)" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px 10px;border-radius:9px;font-family:var(--mono);font-size:15px;flex:0 0 auto;width:78px">${opts}</select>
         <span class="x" onclick="removeAddRow(${i})">×</span>
       </div></div>`;}).join('')+
     `<button type="button" class="addin-add" onclick="openPicker('additive')">+ Add additive</button>`;
@@ -567,7 +569,7 @@ window.renderPickList=()=>{
   $('#micaList').innerHTML=items.length?items.map(m=>{
     const on=selIds.includes(m.id);
     const meta=pickType==='mica'?'':`<div class="meta dim mono" style="font-size:11px;margin-top:2px">${esc(m.supplier||'')}${num(m.cost)?' · '+money(m.cost)+'/oz':''}</div>`;
-    return `<div class="mrow${on?' on':''}" onclick="togglePickRow('${m.id}')">${micaSwatch(m)}<div style="min-width:0;flex:1"><div class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>${meta}</div><span class="chk">✓</span></div>`;
+    return `<div class="mrow${on?' on':''}" onclick="togglePickRow('${m.id}')">${pickType==='mica'?micaSwatch(m):''}<div style="min-width:0;flex:1"><div class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>${meta}</div><span class="chk"><span>✓</span></span></div>`;
   }).join(''):'<div class="dim mono" style="padding:18px;font-size:13px">No matches.</div>';
 };
 window.renderMicaList=window.renderPickList;
