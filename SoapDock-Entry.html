@@ -64,6 +64,10 @@
   .addin-row .nm{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .addin-row .meta{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
   .addin-row input.oz{width:78px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px 8px;border-radius:9px;text-align:right;font-family:var(--mono);font-size:16px}
+  /* kill the up/down spinner arrows — they crowd the amount boxes on tablet */
+  input[type=number]{-moz-appearance:textfield}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .addin-row .x{color:var(--bad);font-size:22px;font-weight:700;padding:4px 8px;cursor:pointer;flex:0 0 auto}
   .addin-add{background:var(--bg);border:1px dashed var(--line);color:var(--dim);padding:13px 18px;border-radius:12px;font-size:14px;font-family:var(--mono);cursor:pointer;text-align:left}
   .micas{display:flex;flex-wrap:wrap;gap:10px}
@@ -84,7 +88,8 @@
   .pick-search{padding:10px 16px;border-bottom:1px solid var(--line)}
   .pick-search input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:12px;border-radius:8px;font-size:16px;font-family:var(--mono)}
   .pick-list{flex:1 1 auto;overflow-y:auto;padding:6px 0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-  .mrow{display:flex;align-items:center;gap:14px;padding:12px 18px;cursor:pointer}
+  .mrow{display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;min-height:56px}
+  .mrow:active{background:var(--panel2)}
   .mrow img,.mrow .ph{width:44px;height:44px;border-radius:9px;object-fit:cover;border:1px solid var(--line);flex:0 0 auto;background:var(--panel2)}
   .mrow .nm{font-size:15px}
   .mrow.on{background:var(--panel2)}
@@ -463,8 +468,8 @@ function renderAddRows(){
     return `<div class="addin-row" style="flex-wrap:wrap"><span class="ph" style="display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M9 3v7.5L5 20h14l-4-9.5V3"/></svg></span>
       <div class="info" style="flex:1 1 120px"><div class="nm">${esc(a.name)}</div><div class="meta">additive</div></div>
       <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
-        <input class="oz" type="number" inputmode="decimal" step="0.01" placeholder="amt" style="width:64px" value="${esc(s.amt||'')}" oninput="setAddAmt(${i},this.value)">
-        <select onchange="setAddUnit(${i},this.value)" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:11px 6px;border-radius:9px;font-family:var(--mono);font-size:14px;flex:0 0 auto">${opts}</select>
+        <input class="oz" type="number" inputmode="decimal" step="0.01" placeholder="amt" style="width:84px;text-align:center" value="${esc(s.amt||'')}" oninput="setAddAmt(${i},this.value)">
+        <select onchange="setAddUnit(${i},this.value)" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px 10px;border-radius:9px;font-family:var(--mono);font-size:15px;flex:0 0 auto">${opts}</select>
         <span class="x" onclick="removeAddRow(${i})">×</span>
       </div></div>`;}).join('')+
     `<button type="button" class="addin-add" onclick="openPicker('additive')">+ Add additive</button>`;
@@ -514,6 +519,15 @@ if(window.visualViewport){
   window.visualViewport.addEventListener('resize',adjustPickSheet);
   window.visualViewport.addEventListener('scroll',adjustPickSheet);
 }
+// When any text/number field gains focus, make sure the on-screen keyboard
+// doesn't cover it. Only acts when the picker sheet is closed (the sheet
+// manages its own layout). Delayed so the keyboard has opened first.
+document.addEventListener('focusin',e=>{
+  const t=e.target;
+  if(!t||!t.matches('input,select,textarea'))return;
+  if(document.getElementById('micaSheet').classList.contains('show'))return;
+  setTimeout(()=>{try{t.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}}, 300);
+});
 window.openPicker=t=>{pickType=t;$('#pickTitle').textContent=PICK_TITLES[t];$('#micaSearch').value='';
   pickSupplier=localStorage.getItem('sd_sup_'+t)||'*';
   $('#micaSearch').placeholder=t==='mica'?'Search colors…':'Search scents…';renderPickList();$('#micaSheet').classList.add('show');adjustPickSheet();};
