@@ -462,8 +462,34 @@ function renderEORows(){
     `<button type="button" class="addin-add" onclick="openPicker('eo')">+ Add essential oil</button>`;
 }
 const ADD_UNITS=['g','oz','lb','tsp','Tbsp'];
-const ADD_G={g:1,oz:28.3495,lb:453.592};  // tsp/Tbsp: no density data, logged uncosted
-function addGrams(s){return ADD_G[s.unit]!=null?num(s.amt)*ADD_G[s.unit]:0;}
+const ADD_G={g:1,oz:28.3495,lb:453.592};
+// Approx density (grams per teaspoon) for dry additives, so tsp/Tbsp amounts can be
+// costed. 1 Tbsp = 3 tsp. Keyed by lowercase name-contains; falls back to DENSITY_DEFAULT.
+// These are typical bench values — adjust if you weigh a level scoop and it differs.
+const DENSITY_DEFAULT=2.5; // g per tsp
+const DENSITIES=[
+  ['kaolin',2.5],['bentonite',2.6],['rose clay',2.5],['green clay',2.5],['clay',2.5],
+  ['colloidal oat',1.7],['oat',1.7],
+  ['coconut milk',2.2],['goat milk',2.2],['rice milk',2.2],['milk powder',2.2],
+  ['raw sugar',4.2],['sugar',4.2],
+  ['activated charcoal',1.2],['charcoal',1.2],
+  ['sodium lactate',5.0],['citric acid',4.5],['salt',6.0],['sodium',5.0],
+  ['silk',0.4],['tussah',0.4],
+  ['poppy seed',3.0],['poppy',3.0],['ground walnut',2.4],['walnut',2.4],
+  ['honey',7.0],['coffee ground',2.0],['coffee',2.0],['mica',2.5],['clay powder',2.5]
+];
+function gramsPerTsp(name){
+  const n=(name||'').toLowerCase();
+  for(const [k,v] of DENSITIES){ if(n.includes(k)) return v; }
+  return DENSITY_DEFAULT;
+}
+function addGrams(s,ing){
+  if(ADD_G[s.unit]!=null) return num(s.amt)*ADD_G[s.unit];
+  const gpt=gramsPerTsp(ing&&ing.name);
+  if(s.unit==='tsp')  return num(s.amt)*gpt;
+  if(s.unit==='Tbsp') return num(s.amt)*gpt*3;
+  return 0;
+}
 function renderAddRows(){
   $('#bAddRows').innerHTML=addSel.map((s,i)=>{const a=ING.find(x=>x.id===s.id);if(!a)return'';
     const opts=ADD_UNITS.map(u=>`<option value="${u}" ${s.unit===u?'selected':''}>${u}</option>`).join('');
@@ -599,7 +625,7 @@ function addinCost(){
   eoSel.forEach(s=>{const a=ADDIN.find(x=>x.id===s.id);if(!a)return;const oz=num(s.oz);const c=oz*num(a.cost);cost+=c;list.push({addin_id:a.id,type:'eo',name:a.name,oz,cost:c});});
   micaSel.forEach(id=>{const m=ADDIN.find(a=>a.id===id);if(m){cost+=num(m.cost);list.push({addin_id:m.id,type:'mica',name:m.name,cost:num(m.cost)});}});
   addSel.forEach(s=>{const a=ING.find(x=>x.id===s.id);if(!a)return;
-    const g=addGrams(s);const c=g>0?g*costPerG(a):0;cost+=c;
+    const g=addGrams(s,a);const c=g>0?g*costPerG(a):0;cost+=c;
     list.push({ingredient_id:a.id,type:'additive',name:a.name,amt:s.amt||'',unit:s.unit||'g',cost:c});});
   return {cost,list};
 }
