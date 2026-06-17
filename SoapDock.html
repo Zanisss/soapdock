@@ -613,13 +613,15 @@ $('#adType').onchange=()=>{const t=$('#adType').value;$('#adCostLabel').textCont
   $('#adCostHint').textContent=isMica?'Costed as one ¼ tsp use per batch.':'Costed by oz used in the batch.';};
 function renderAddins(){
   $('#adEmpty').style.display=ADDIN.length?'none':'block';
-  $('#adTotalCount').textContent=ADDIN.length?'· '+ADDIN.length+' total':'';
   const supSel=$('#adSupFilter');
   const sups=[...new Set(ADDIN.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
   const cur=supSel.value||'*';
-  supSel.innerHTML='<option value="*">All suppliers</option>'+sups.map(s=>`<option value="${esc(s)}" ${s===cur?'selected':''}>${esc(s)}</option>`).join('');
+  const supCounts=Object.fromEntries(sups.map(s=>[s,ADDIN.filter(a=>(a.supplier||'').trim()===s).length]));
+  supSel.innerHTML='<option value="*">All suppliers</option>'+sups.map(s=>`<option value="${esc(s)}" ${s===cur?'selected':''}>${esc(s)} (${supCounts[s]})</option>`).join('');
   if(cur!=='*'&&!sups.includes(cur))supSel.value='*';
   const supFilter=supSel.value||'*';
+  const filtCount=supFilter==='*'?ADDIN.length:ADDIN.filter(a=>(a.supplier||'').trim()===supFilter).length;
+  $('#adTotalCount').textContent=filtCount?'· '+filtCount+' total':'';
   let html='';
   ADDIN_TYPES.forEach(([t,label])=>{
     const items=ADDIN.filter(a=>a.type===t&&(supFilter==='*'||(a.supplier||'').trim()===supFilter));if(!items.length)return;
