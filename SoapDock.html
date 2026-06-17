@@ -326,7 +326,7 @@
           <div><button class="btn" id="iSave">Save ingredient</button> <button class="btn ghost" id="iClear" style="display:none">Cancel</button></div>
         </div>
         <div class="card" style="flex:1.7;min-width:380px">
-          <h2>Cost inventory <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="ingTotalCount"></span></h2>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px"><h2 style="margin:0">Cost inventory <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="ingTotalCount"></span></h2><select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select></div>
           <div id="ingGroups"></div>
           <div class="empty" id="ingEmpty">No ingredients yet.</div>
         </div>
@@ -377,14 +377,6 @@
         </div>
         <div class="field" id="adNotesWrap"><label id="adNotesLabel">Color / notes</label><input id="adNotes" placeholder="color or notes"></div>
         <div><button class="btn" id="adSave">Save add-in</button> <button class="btn ghost" id="adClear" style="display:none">Cancel</button></div>
-      </div>
-      <div class="card" style="flex:1.6;min-width:360px">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <h2 style="margin:0">Add-In Library <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="adTotalCount"></span></h2>
-          <select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select>
-        </div>
-        <div id="adGroups"></div>
-        <div class="empty" id="adEmpty">No add-ins yet.</div>
       </div>
     </div>
   </div>
@@ -597,43 +589,19 @@ function ingConsumed(ing){let u=0;BAT.forEach(b=>{const c=b.computed;if(!c)retur
 function ingStock(ing){const purchased=ingPurchased(ing),consumed=ingConsumed(ing);return{purchased,consumed,onHand:purchased-consumed};}
 
 // ---- RENDER ALL ----
-function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderAddins();renderPricing();if(openIng)renderIngDetail();}
+function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPricing();if(openIng)renderIngDetail();}
 
 // ---- ADD-INS (fragrances / EOs / micas) ----
 const ADDIN_TYPES=[['fragrance','Fragrances'],['eo','Essential Oils'],['mica','Micas']];
 let editAddin=null;
-$('#adSupFilter').onchange=()=>renderAddins();
+$('#adSupFilter').onchange=()=>renderIngredients();
 function adCostLabelFor(t){return t==='mica'?'Cost per ¼ tsp ($)':'Cost per oz ($)';}
 $('#adType').onchange=()=>{const t=$('#adType').value;$('#adCostLabel').textContent=adCostLabelFor(t);
   const isMica=t==='mica';
   $('#adScentFields').style.display=isMica?'none':'grid';
   $('#adNotesLabel').textContent=isMica?'Color notes':'Notes';
   $('#adCostHint').textContent=isMica?'Costed as one ¼ tsp use per batch.':'Costed by oz used in the batch.';};
-function renderAddins(){
-  $('#adEmpty').style.display=ADDIN.length?'none':'block';
-  const supSel=$('#adSupFilter');
-  const sups=[...new Set(ADDIN.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
-  const cur=supSel.value||'*';
-  const supCounts=Object.fromEntries(sups.map(s=>[s,ADDIN.filter(a=>(a.supplier||'').trim()===s).length]));
-  supSel.innerHTML='<option value="*">All suppliers</option>'+sups.map(s=>`<option value="${esc(s)}" ${s===cur?'selected':''}>${esc(s)} (${supCounts[s]})</option>`).join('');
-  if(cur!=='*'&&!sups.includes(cur))supSel.value='*';
-  const supFilter=supSel.value||'*';
-  const filtCount=supFilter==='*'?ADDIN.length:ADDIN.filter(a=>(a.supplier||'').trim()===supFilter).length;
-  $('#adTotalCount').textContent=filtCount?'· '+filtCount+' total':'';
-  let html='';
-  ADDIN_TYPES.forEach(([t,label])=>{
-    const items=ADDIN.filter(a=>a.type===t&&(supFilter==='*'||(a.supplier||'').trim()===supFilter));if(!items.length)return;
-    const unit=t==='mica'?'/¼tsp':'/oz';
-    const rows=items.map(a=>{const noteStr=t==='mica'?(a.notes||''):[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ');
-      const sw=a.image_url?`<img src="${esc(a.image_url)}" class="swatch" loading="lazy" onerror="this.style.display='none'">`:'';
-      const nm=a.product_url?`<a href="${esc(a.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(a.name)} <span style="color:var(--accent);font-size:11px">↗</span></a>`:esc(a.name);
-      return `<tr><td><span style="display:flex;align-items:center;gap:8px">${sw}${nm}</span></td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(noteStr)}</td>
-      <td class="num" style="white-space:nowrap"><button class="btn ghost sm" style="margin-right:6px" onclick="editAddinFn('${a.id}')">edit</button><button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`;}).join('');
-    html+=`<div class="cat-group"><div class="cat-head open" onclick="toggleCat(this)"><span class="chev">▶</span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
-      <div class="cat-body open"><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-  });
-  $('#adGroups').innerHTML=html;
-}
+function renderAddins(){renderIngredients();}
 $('#adSave').onclick=async()=>{
   const rec={type:$('#adType').value,name:$('#adName').value.trim(),supplier:$('#adSupplier').value,cost:num($('#adCost').value),
     note_top:$('#adTop').value,note_mid:$('#adMid').value,note_base:$('#adBase').value,notes:$('#adNotes').value,image_url:$('#adImg').value.trim()||null,product_url:$('#adUrl').value.trim()||null};
@@ -1045,13 +1013,23 @@ function clearMoldForm(){editMold=null;$('#moName').value='';$('#moOil').value='
 // ---- INGREDIENTS ----
 let editIng=null;
 $('#iCat').onchange=()=>{$('#iSapWrap').style.display=$('#iCat').value==='oil'?'block':'none';};
-const CAT_ORDER=['oil','wax','lye','liquid','additive','other'];
+const CAT_ORDER=['oil','wax','lye','liquid','additive'];
 const CAT_NAME={oil:'Oils / Butters',wax:'Waxes',lye:'Lye',liquid:'Liquids',fragrance:'Fragrances',additive:'Additives',other:'Other'};
 function renderIngredients(){
-  ING.forEach(i=>{if(i.category==='fragrance')i.category='other';});
-  $('#ingEmpty').style.display=ING.length?'none':'block';
-  $('#ingTotalCount').textContent=ING.length?'· '+ING.length+' total':'';
-  const byCat={};ING.forEach(i=>{const c=i.category||'other';(byCat[c]=byCat[c]||[]).push(i);});
+  // Rebuild supplier filter dropdown
+  const supSel=$('#adSupFilter');
+  const sups=[...new Set(ADDIN.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
+  const cur=supSel.value||'*';
+  const supCounts=Object.fromEntries(sups.map(s=>[s,ADDIN.filter(a=>(a.supplier||'').trim()===s).length]));
+  supSel.innerHTML='<option value="*">All suppliers</option>'+sups.map(s=>`<option value="${esc(s)}" ${s===cur?'selected':''}>${esc(s)} (${supCounts[s]})</option>`).join('');
+  if(cur!=='*'&&!sups.includes(cur))supSel.value='*';
+  const supFilter=supSel.value||'*';
+  // Totals
+  const adFiltered=supFilter==='*'?ADDIN.length:ADDIN.filter(a=>(a.supplier||'').trim()===supFilter).length;
+  $('#ingEmpty').style.display=(ING.length||ADDIN.length)?'none':'block';
+  $('#ingTotalCount').textContent=(ING.length||adFiltered)?'· '+(ING.length+adFiltered)+' total':'';
+  // Ingredient sections
+  const byCat={};ING.forEach(i=>{const c=i.category||'additive';(byCat[c]=byCat[c]||[]).push(i);});
   let html='';
   CAT_ORDER.forEach(cat=>{
     const items=byCat[cat];if(!items||!items.length)return;
@@ -1065,6 +1043,21 @@ function renderIngredients(){
       <div class="cat-head" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${CAT_COLOR[cat]||'var(--dim)'}"></span><span class="nm">${CAT_NAME[cat]||cat}</span><span class="ct">${items.length}</span></div>
       <div class="cat-body"><table><thead><tr><th>Ingredient</th><th class="num">SAP</th><th class="num">Costing</th><th class="num">On hand</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
+  });
+  // Add-in sections with colored catdots — same pattern as ingredient sections
+  const ADDIN_DOT={fragrance:'var(--warn)',eo:'var(--good)',mica:'var(--blue)'};
+  ADDIN_TYPES.forEach(([t,label])=>{
+    const items=ADDIN.filter(a=>a.type===t&&(supFilter==='*'||(a.supplier||'').trim()===supFilter));
+    if(!items.length)return;
+    const unit=t==='mica'?'/¼tsp':'/oz';
+    const dot=ADDIN_DOT[t]||'var(--dim)';
+    const rows=items.map(a=>{const noteStr=t==='mica'?(a.notes||''):[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ');
+      const sw=a.image_url?`<img src="${esc(a.image_url)}" class="swatch" loading="lazy" onerror="this.style.display='none'">`:''
+      const nm=a.product_url?`<a href="${esc(a.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(a.name)} <span style="color:var(--accent);font-size:11px">↗</span></a>`:esc(a.name);
+      return `<tr><td><span style="display:flex;align-items:center;gap:8px">${sw}${nm}</span></td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(noteStr)}</td>
+      <td class="num" style="white-space:nowrap"><button class="btn ghost sm" style="margin-right:6px" onclick="editAddinFn('${a.id}')">edit</button><button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`;}).join('');
+    html+=`<div class="cat-group"><div class="cat-head" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
+      <div class="cat-body"><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   });
   $('#ingGroups').innerHTML=html;
 }
