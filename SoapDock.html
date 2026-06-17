@@ -327,6 +327,7 @@
         </div>
         <div class="card" style="flex:1.7;min-width:380px">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px"><h2 style="margin:0">Cost inventory <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="ingTotalCount"></span></h2><select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select></div>
+          <div style="display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap"><input id="adSearch" type="search" placeholder="Search name, supplier, notes…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><input id="adPriceMin" type="number" step="0.01" min="0" placeholder="$/oz min" style="width:88px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><input id="adPriceMax" type="number" step="0.01" min="0" placeholder="$/oz max" style="width:88px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"></div>
           <div id="ingGroups"></div>
           <div class="empty" id="ingEmpty">No ingredients yet.</div>
         </div>
@@ -595,6 +596,9 @@ function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();r
 const ADDIN_TYPES=[['fragrance','Fragrances'],['eo','Essential Oils'],['mica','Micas']];
 let editAddin=null;
 $('#adSupFilter').onchange=()=>renderIngredients();
+$('#adSearch').addEventListener('input',renderIngredients);
+$('#adPriceMin').addEventListener('input',renderIngredients);
+$('#adPriceMax').addEventListener('input',renderIngredients);
 function adCostLabelFor(t){return t==='mica'?'Cost per ¼ tsp ($)':'Cost per oz ($)';}
 $('#adType').onchange=()=>{const t=$('#adType').value;$('#adCostLabel').textContent=adCostLabelFor(t);
   const isMica=t==='mica';
@@ -1025,7 +1029,18 @@ function renderIngredients(){
   if(cur!=='*'&&!sups.includes(cur))supSel.value='*';
   const supFilter=supSel.value||'*';
   // Totals
-  const adFiltered=supFilter==='*'?ADDIN.length:ADDIN.filter(a=>(a.supplier||'').trim()===supFilter).length;
+  // adFiltered computed after ADDIN_TYPES loop (use a flag to defer)
+  const _sq=($('#adSearch').value||'').toLowerCase().trim();
+  const _pMin=parseFloat($('#adPriceMin').value)||0;
+  const _pMax=parseFloat($('#adPriceMax').value)||Infinity;
+  const adFiltered=ADDIN.filter(a=>{
+    if(supFilter!=='*'&&(a.supplier||'').trim()!==supFilter)return false;
+    const cost=parseFloat(a.cost)||0;
+    if(_pMin&&cost<_pMin)return false;
+    if(_pMax!==Infinity&&cost>_pMax)return false;
+    if(_sq){const hay=[a.name,a.supplier,a.note_top,a.note_mid,a.note_base,a.notes].filter(Boolean).join(' ').toLowerCase();if(!hay.includes(_sq))return false;}
+    return true;
+  }).length;
   $('#ingEmpty').style.display=(ING.length||ADDIN.length)?'none':'block';
   $('#ingTotalCount').textContent=(ING.length||adFiltered)?'· '+(ING.length+adFiltered)+' total':'';
   // Ingredient sections
@@ -1047,7 +1062,18 @@ function renderIngredients(){
   // Add-in sections with colored catdots — same pattern as ingredient sections
   const ADDIN_DOT={fragrance:'var(--warn)',eo:'var(--good)',mica:'var(--blue)'};
   ADDIN_TYPES.forEach(([t,label])=>{
-    const items=ADDIN.filter(a=>a.type===t&&(supFilter==='*'||(a.supplier||'').trim()===supFilter));
+    const searchQ=($('#adSearch').value||'').toLowerCase().trim();
+    const priceMin=parseFloat($('#adPriceMin').value)||0;
+    const priceMax=parseFloat($('#adPriceMax').value)||Infinity;
+    const items=ADDIN.filter(a=>{
+      if(a.type!==t)return false;
+      if(supFilter!=='*'&&(a.supplier||'').trim()!==supFilter)return false;
+      const cost=parseFloat(a.cost)||0;
+      if(priceMin&&cost<priceMin)return false;
+      if(priceMax!==Infinity&&cost>priceMax)return false;
+      if(searchQ){const hay=[a.name,a.supplier,a.note_top,a.note_mid,a.note_base,a.notes].filter(Boolean).join(' ').toLowerCase();if(!hay.includes(searchQ))return false;}
+      return true;
+    });
     if(!items.length)return;
     const unit=t==='mica'?'/¼tsp':'/oz';
     const dot=ADDIN_DOT[t]||'var(--dim)';
@@ -1056,8 +1082,9 @@ function renderIngredients(){
       const nm=a.product_url?`<a href="${esc(a.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(a.name)} <span style="color:var(--accent);font-size:11px">↗</span></a>`:esc(a.name);
       return `<tr><td><span style="display:flex;align-items:center;gap:8px">${sw}${nm}</span></td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(noteStr)}</td>
       <td class="num" style="white-space:nowrap"><button class="btn ghost sm" style="margin-right:6px" onclick="editAddinFn('${a.id}')">edit</button><button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`;}).join('');
-    html+=`<div class="cat-group"><div class="cat-head" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
-      <div class="cat-body"><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    const autoOpen=!!(searchQ||priceMin||priceMax!==Infinity);
+    html+=`<div class="cat-group"><div class="cat-head${autoOpen?' open':''}" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
+      <div class="cat-body${autoOpen?' open':''}" ><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   });
   $('#ingGroups').innerHTML=html;
 }
