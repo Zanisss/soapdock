@@ -138,7 +138,6 @@
     <button data-v="recipes">Recipes</button>
     <button data-v="molds">Molds</button>
     <button data-v="ingredients">Ingredients</button>
-    <button data-v="addins">Add-ins</button>
     <button data-v="pricing">Pricing</button>
   </nav>
 
@@ -358,15 +357,13 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ADD-INS -->
-  <div class="view" id="v-addins">
+  <div id="v-addins" style="margin-top:20px">
     <div class="row">
       <div class="card" style="flex:1;min-width:300px">
         <h2 id="adFormTitle">New add-in</h2>
         <div class="field"><label>Type</label>
-          <select id="adType"><option value="eo">Essential Oil</option><option value="mica">Mica</option></select></div>
+          <select id="adType"><option value="fragrance">Fragrance Oil</option><option value="eo">Essential Oil</option><option value="mica">Mica</option></select></div>
         <div class="field"><label>Name</label><input id="adName" placeholder="e.g. Green Clover & Aloe"></div>
         <div class="field"><label>Supplier</label><input id="adSupplier" placeholder="e.g. Nature's Garden"></div>
         <div class="field"><label>Image URL <span class="dim" style="font-weight:400">(optional swatch)</span></label><input id="adImg" placeholder="https://…/swatch.jpg"></div>
@@ -383,7 +380,7 @@
       </div>
       <div class="card" style="flex:1.6;min-width:360px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <h2 style="margin:0">Add-in library <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="adTotalCount"></span></h2>
+          <h2 style="margin:0">Add-In Library <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="adTotalCount"></span></h2>
           <select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select>
         </div>
         <div id="adGroups"></div>
@@ -391,6 +388,7 @@
       </div>
     </div>
   </div>
+</div>
 
   <!-- PRICING -->
   <div class="view" id="v-pricing">
@@ -679,7 +677,7 @@ function fillAddinPickers(){
   const frags=ADDIN.filter(a=>a.type==='fragrance'),eos=ADDIN.filter(a=>a.type==='eo'),micas=ADDIN.filter(a=>a.type==='mica');
   $('#mkFrag').innerHTML='<option value="">— none —</option>'+frags.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
   $('#mkEO').innerHTML='<option value="">— none —</option>'+eos.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
-  $('#mkMicas').innerHTML=micas.length?micas.map(a=>`<button type="button" class="btn ghost sm mica-tag" data-id="${a.id}" onclick="toggleMica('${a.id}',this)">${a.image_url?`<img src="${esc(a.image_url)}" class="swatch sm" loading="lazy" onerror="this.style.display='none'">`:''}${esc(a.name)}</button>`).join(''):'<span class="dim mono" style="font-size:11px">No micas yet — add some in the Add-ins tab.</span>';
+  $('#mkMicas').innerHTML=micas.length?micas.map(a=>`<button type="button" class="btn ghost sm mica-tag" data-id="${a.id}" onclick="toggleMica('${a.id}',this)">${a.image_url?`<img src="${esc(a.image_url)}" class="swatch sm" loading="lazy" onerror="this.style.display='none'">`:''}${esc(a.name)}</button>`).join(''):'<span class="dim mono" style="font-size:11px">No micas yet — add some in the Ingredients tab.</span>';
   // restore selection highlight
   mkMicaSel.forEach(id=>{const b=document.querySelector('.mica-tag[data-id="'+id+'"]');if(b){b.style.background='var(--accent)';b.style.color='#04110f';}});
 }
@@ -1047,7 +1045,7 @@ function clearMoldForm(){editMold=null;$('#moName').value='';$('#moOil').value='
 // ---- INGREDIENTS ----
 let editIng=null;
 $('#iCat').onchange=()=>{$('#iSapWrap').style.display=$('#iCat').value==='oil'?'block':'none';};
-const CAT_ORDER=['oil','wax','lye','liquid','additive','other'];  // fragrances live in Add-Ins now
+const CAT_ORDER=['oil','wax','lye','liquid','additive','other'];
 const CAT_NAME={oil:'Oils / Butters',wax:'Waxes',lye:'Lye',liquid:'Liquids',fragrance:'Fragrances',additive:'Additives',other:'Other'};
 function renderIngredients(){
   ING.forEach(i=>{if(i.category==='fragrance')i.category='other';});
