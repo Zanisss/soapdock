@@ -1152,13 +1152,16 @@ function renderPriceList(){
 
   // ING items — go into oil/wax/lye/additive/other categories
   ING.forEach(ing=>{
-    // Most recent purchase vendor for this ingredient
-    const purchases=PUR.filter(p=>p.ingredient_id===ing.id)
-      .sort((a,b)=>(b.bought_on||'').localeCompare(a.bought_on||''));
-    const lastVendor=purchases.length?(purchases[0].vendor||''):'';
+    // Cheapest vendor for this ingredient (best $/unit across purchase history)
+    const purchases=PUR.filter(p=>p.ingredient_id===ing.id);
+    let bestVendor='', bestCPU=Infinity;
+    purchases.forEach(p=>{
+      const cpu=purchaseCostPerUnit(p,ing);
+      if(cpu>0&&cpu<bestCPU){bestCPU=cpu;bestVendor=p.vendor||'';}
+    });
     allItems.push({
       _src:'ing', id:ing.id, name:ing.name,
-      supplier:lastVendor, category:ing.category||'other',
+      supplier:bestVendor, category:ing.category||'other',
       sap_naoh:ing.sap_naoh, cost_per_g:null,
       notes:'', product_url:null,
       _ing:ing, _onHand:onHandIds.has(ing.id)
