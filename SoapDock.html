@@ -137,7 +137,8 @@
     <button data-v="batches">Batch History</button>
     <button data-v="recipes">Recipes</button>
     <button data-v="molds">Molds</button>
-    <button data-v="ingredients">Ingredients</button>
+    <button data-v="ingredients">On Hand</button>
+    <button data-v="pricelist">Price List</button>
     <button data-v="pricing">Pricing</button>
   </nav>
 
@@ -326,7 +327,7 @@
           <div><button class="btn" id="iSave">Save ingredient</button> <button class="btn ghost" id="iClear" style="display:none">Cancel</button></div>
         </div>
         <div class="card" style="flex:1.7;min-width:380px">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px"><h2 style="margin:0">Cost inventory <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="ingTotalCount"></span></h2><select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px"><h2 style="margin:0">On Hand Inventory <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="ingTotalCount"></span></h2><select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select></div>
           <div style="display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap"><input id="adSearch" type="search" placeholder="Search name, supplier, notes…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><input id="adPriceMin" type="number" step="0.01" min="0" placeholder="$/oz min" style="width:88px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><input id="adPriceMax" type="number" step="0.01" min="0" placeholder="$/oz max" style="width:88px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"></div>
           <div id="ingGroups"></div>
           <div class="empty" id="ingEmpty">No ingredients yet.</div>
@@ -383,6 +384,48 @@
   </div>
 </div>
 
+  <!-- PRICE LIST -->
+  <div class="view" id="v-pricelist">
+    <div class="row" style="align-items:flex-start;gap:20px">
+      <div class="card" style="flex:0 0 300px;min-width:260px">
+        <h2 id="plFormTitle">New Price List Entry</h2>
+        <div class="field"><label>Name</label><input id="plName" placeholder="e.g. Olive Oil, Pomace"></div>
+        <div class="field"><label>Supplier</label><input id="plSupplier" placeholder="e.g. Soaper's Choice"></div>
+        <div class="field"><label>Category</label>
+          <select id="plCat">
+            <option value="oil">Oil / Butter</option>
+            <option value="wax">Wax</option>
+            <option value="additive">Additive</option>
+            <option value="other">Other</option>
+          </select></div>
+        <div class="field"><label>SAP NaOH Value</label><input id="plSap" type="number" step="0.001" min="0" placeholder="e.g. 0.134"></div>
+        <div class="field"><label>Package Size</label>
+          <div style="display:flex;gap:6px">
+            <input id="plPkgSize" type="number" step="0.1" min="0" placeholder="7" style="flex:1">
+            <select id="plPkgUnit" style="width:72px"><option value="lb">lb</option><option value="kg">kg</option><option value="g">g</option><option value="oz">oz</option></select>
+          </div></div>
+        <div class="field"><label>Price Paid ($)</label><input id="plPrice" type="number" step="0.01" min="0" placeholder="0.00"><span class="dim mono" style="font-size:11px">Cost/g calculated automatically</span></div>
+        <div class="field"><label>Notes (grade / organic / etc.)</label><input id="plNotes" placeholder="Refined, Organic, 76 degree..."></div>
+        <div class="field"><label>Product URL (optional)</label><input id="plUrl" placeholder="https://..."></div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn primary" id="plSave">Save entry</button>
+          <button class="btn ghost" id="plClear" style="display:none">Clear</button>
+        </div>
+      </div>
+      <div class="card" style="flex:1.7;min-width:380px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <h2 style="margin:0">Price List <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="plTotalCount"></span></h2>
+          <select id="plSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select>
+        </div>
+        <div style="display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap">
+          <input id="plSearch" type="search" placeholder="Search oils, butters, additives…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px">
+        </div>
+        <div id="plGroups"></div>
+        <div class="empty" id="plEmpty">No price list entries yet — run the Soaper's Choice SQL to populate.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRICING -->
   <div class="view" id="v-pricing">
     <div class="card">
@@ -437,7 +480,7 @@ async function loadTheme(){
 // paint instantly from last-known theme (no cyan flash) before auth resolves
 try{const c=localStorage.getItem('sd_theme');if(c)applyTheme(c);}catch(e){}
 
-let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[], openIng=null, editRec=null;
+let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[], PL=[], openIng=null, editRec=null, editPl=null;
 let mkMicaSel=[];
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
@@ -548,17 +591,18 @@ async function fetchAll(table, orderCol, opts){
   return {data:out, error};
 }
 async function loadAll(){
-  const [i,r,b,p,m,a]=await Promise.all([
+  const [i,r,b,p,m,a,pl]=await Promise.all([
     fetchAll('ingredients','name'),
     fetchAll('recipes','name'),
     fetchAll('batches','made_on',{ascending:false}),
     fetchAll('purchases','bought_on',{ascending:false}),
     fetchAll('molds','total_oil_g',{ascending:false}),
-    fetchAll('addins','name')
+    fetchAll('addins','name'),
+    fetchAll('price_list','name')
   ]);
-  restOk=![i,r,b,p,m,a].some(x=>x.error);
+  restOk=![i,r,b,p,m,a,pl].some(x=>x.error);
   refreshSync();
-  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];
+  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];PL=pl.data||[];
   renderAll();
 }
 // ---- SYNC BADGE + REALTIME (REST decides online/offline; realtime only upgrades to "live") ----
@@ -590,7 +634,7 @@ function ingConsumed(ing){let u=0;BAT.forEach(b=>{const c=b.computed;if(!c)retur
 function ingStock(ing){const purchased=ingPurchased(ing),consumed=ingConsumed(ing);return{purchased,consumed,onHand:purchased-consumed};}
 
 // ---- RENDER ALL ----
-function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPricing();if(openIng)renderIngDetail();}
+function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPriceList();renderPricing();if(openIng)renderIngDetail();}
 
 // ---- ADD-INS (fragrances / EOs / micas) ----
 const ADDIN_TYPES=[['fragrance','Fragrances'],['eo','Essential Oils'],['mica','Micas']];
@@ -1122,6 +1166,114 @@ $('#pSave').onclick=async()=>{
 window.delPurch=async id=>{if(!confirm('Delete this purchase?'))return;await sb.from('purchases').delete().eq('id',id);toast('Deleted');loadAll();};
 
 // ---- PRICING ----
+function renderPriceList(){
+  const supSel=$('#plSupFilter');
+  const sups=[...new Set(PL.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
+  const cur=supSel.value||'*';
+  supSel.innerHTML='<option value="*">All suppliers</option>'+sups.map(s=>`<option value="${esc(s)}" ${s===cur?'selected':''}>${esc(s)}</option>`).join('');
+  if(cur!=='*'&&!sups.includes(cur))supSel.value='*';
+  const supFilter=supSel.value||'*';
+  const searchQ=($('#plSearch').value||'').toLowerCase().trim();
+  const PL_CAT=[['oil','Oils & Butters'],['wax','Waxes'],['additive','Additives'],['other','Other']];
+  const PL_DOT={oil:'var(--warn)',wax:'var(--blue)',additive:'var(--good)',other:'var(--dim)'};
+  const filtered=PL.filter(p=>{
+    if(supFilter!=='*'&&(p.supplier||'').trim()!==supFilter)return false;
+    if(searchQ){const hay=[p.name,p.supplier,p.notes].filter(Boolean).join(' ').toLowerCase();if(!searchQ.split(/\s+/).every(w=>hay.includes(w)))return false;}
+    return true;
+  });
+  $('#plEmpty').style.display=filtered.length?'none':'block';
+  $('#plTotalCount').textContent=filtered.length?'\u00b7 '+filtered.length+' items':'';
+  const byCat={};filtered.forEach(p=>{const c=p.category||'other';(byCat[c]=byCat[c]||[]).push(p);});
+  let html='';
+  PL_CAT.forEach(([cat,label])=>{
+    const items=byCat[cat];if(!items||!items.length)return;
+    const dot=PL_DOT[cat]||'var(--dim)';
+    const rows=items.map(p=>{
+      const cpg=p.cost_per_g?money4(p.cost_per_g)+'/g':'\u2014';
+      const sap=p.sap_naoh?p.sap_naoh:'\u2014';
+      const nm=p.product_url?`<a href="${esc(p.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(p.name)} <span style="color:var(--accent);font-size:11px">\u2197</span></a>`:esc(p.name);
+      return `<tr>
+        <td>${nm}</td>
+        <td class="dim" style="font-size:11px">${esc(p.notes||'')}</td>
+        <td class="num dim mono" style="font-size:11px">${sap}</td>
+        <td class="num">${cpg}</td>
+        <td class="num" style="white-space:nowrap">
+          <button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${p.id}')">log purchase</button>
+          <button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${p.id}')">edit</button>
+          <button class="btn danger sm" onclick="delPl('${p.id}')">\u00d7</button>
+        </td></tr>`;}).join('');
+    html+=`<div class="cat-group"><div class="cat-head" onclick="toggleCat(this)"><span class="chev">\u25b6</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
+      <div class="cat-body"><table><thead><tr><th>Name</th><th>Notes / Grade</th><th class="num">SAP NaOH</th><th class="num">Cost/g</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  });
+  $('#plGroups').innerHTML=html;
+}
+
+$('#plSupFilter').onchange=()=>renderPriceList();
+$('#plSearch').addEventListener('input',renderPriceList);
+
+$('#plSave').onclick=async()=>{
+  const pkgSize=num($('#plPkgSize').value);
+  const priceVal=num($('#plPrice').value);
+  const pkgUnit=$('#plPkgUnit').value;
+  const gPerUnit={lb:453.592,kg:1000,g:1,oz:28.3495};
+  const costPerG=(pkgSize&&priceVal)?(priceVal/(pkgSize*(gPerUnit[pkgUnit]||1))):0;
+  const rec={
+    name:$('#plName').value.trim(),supplier:$('#plSupplier').value.trim(),
+    category:$('#plCat').value,sap_naoh:num($('#plSap').value)||null,
+    cost_per_g:costPerG,pkg_size:pkgSize||null,pkg_unit:pkgUnit,
+    product_url:$('#plUrl').value.trim()||null,notes:$('#plNotes').value.trim()
+  };
+  if(!rec.name){toast('Name required');return;}
+  let error;
+  if(editPl){({error}=await sb.from('price_list').update(rec).eq('id',editPl));}
+  else{({error}=await sb.from('price_list').insert(rec));}
+  if(error){toast('Error: '+error.message);return;}
+  toast(editPl?'Updated':'Saved');clearPlForm();loadAll();
+};
+
+function clearPlForm(){
+  editPl=null;
+  ['plName','plSupplier','plSap','plPkgSize','plPrice','plNotes','plUrl'].forEach(id=>$('#'+id).value='');
+  $('#plCat').value='oil';$('#plPkgUnit').value='lb';
+  $('#plFormTitle').textContent='New Price List Entry';$('#plClear').style.display='none';
+}
+$('#plClear').onclick=clearPlForm;
+
+window.editPlFn=id=>{
+  const p=PL.find(x=>x.id===id);if(!p)return;
+  editPl=id;
+  $('#plName').value=p.name||'';$('#plSupplier').value=p.supplier||'';
+  $('#plCat').value=p.category||'oil';$('#plSap').value=p.sap_naoh||'';
+  $('#plPkgSize').value=p.pkg_size||'';$('#plPkgUnit').value=p.pkg_unit||'lb';
+  $('#plNotes').value=p.notes||'';$('#plUrl').value=p.product_url||'';
+  // reverse-calc price from cost_per_g
+  const gPerUnit={lb:453.592,kg:1000,g:1,oz:28.3495};
+  const g=(p.pkg_size||0)*(gPerUnit[p.pkg_unit||'lb']||1);
+  $('#plPrice').value=g&&p.cost_per_g?(p.cost_per_g*g).toFixed(2):'';
+  $('#plFormTitle').textContent='Edit entry';$('#plClear').style.display='inline-block';
+  document.querySelector('#v-pricelist .card').scrollIntoView({behavior:'smooth'});
+};
+
+window.delPl=async id=>{
+  if(!confirm('Remove this price list entry?'))return;
+  await sb.from('price_list').delete().eq('id',id);toast('Removed');loadAll();
+};
+
+window.logPurchaseFromPL=id=>{
+  const p=PL.find(x=>x.id===id);if(!p)return;
+  // Switch to On Hand tab, pre-fill the ingredient name if it matches, open purchase form
+  $$('nav button').forEach(x=>x.classList.remove('on'));
+  document.querySelector('[data-v="ingredients"]').classList.add('on');
+  $$('.view').forEach(v=>v.classList.remove('on'));$('#v-ingredients').classList.add('on');
+  // Pre-fill new ingredient form with price list data
+  $('#iName').value=p.name||'';
+  $('#iCat').value=p.category||'oil';
+  $('#iSap').value=p.sap_naoh||'';
+  // Scroll to form
+  document.querySelector('#v-ingredients .card').scrollIntoView({behavior:'smooth'});
+  toast('Switched to On Hand — check if ingredient exists, then log a purchase');
+};
+
 function renderPricing(){
   const cr=$('#prRecipe').value;fillRecipeSelect($('#prRecipe'));if(cr)$('#prRecipe').value=cr;
   const cm=$('#prMold').value;fillMoldSelect($('#prMold'));if(cm)$('#prMold').value=cm;
