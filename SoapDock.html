@@ -74,10 +74,10 @@
   .sync.live{color:var(--good)}
   .sync.ok{color:var(--dim)}
   .sync.off{color:var(--warn)}
-  .themes{display:flex;gap:7px;align-items:center;margin-right:4px}
-  .tdot{width:13px;height:13px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;background-clip:padding-box}
-  .tdot:hover{transform:scale(1.15)}
+  .tdot{width:13px;height:13px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;background-clip:padding-box;flex-shrink:0;transition:transform .15s ease,border-color .15s ease}
+  .tdot:hover{transform:scale(1.2)}
   .tdot.on{border-color:var(--txt)}
+  .themes{display:flex;gap:7px;align-items:center;margin-right:4px;min-width:74px}
   .swatch{width:26px;height:26px;border-radius:6px;object-fit:cover;border:1px solid var(--line);flex:0 0 auto}
   .swatch.sm{width:16px;height:16px;border-radius:4px;vertical-align:-3px;margin-right:6px}
   .mica-tag{display:inline-flex;align-items:center}
@@ -464,8 +464,15 @@ function applyTheme(name){
 }
 function renderThemeDots(){
   const el=document.getElementById('themeDots'); if(!el)return;
-  el.innerHTML=Object.keys(THEMES).map(n=>
-    `<button class="tdot${n===THEME?' on':''}" style="background:${THEMES[n].accent}" title="${n}" onclick="setTheme('${n}')"></button>`).join('');
+  // Build once, then just toggle classes to avoid layout-shifting innerHTML rewrites
+  if(!el.children.length){
+    el.innerHTML=Object.keys(THEMES).map(n=>
+      `<button class="tdot" style="background:${THEMES[n].accent}" title="${n}" onclick="setTheme('${n}')"></button>`).join('');
+  }
+  [...el.children].forEach((btn,i)=>{
+    const n=Object.keys(THEMES)[i];
+    btn.classList.toggle('on', n===THEME);
+  });
 }
 window.setTheme=async function(name){
   applyTheme(name);
@@ -1085,10 +1092,12 @@ function renderIngredients(){
     if(_sq){const hay=[a.name,a.supplier,a.note_top,a.note_mid,a.note_base,a.notes].filter(Boolean).join(' ').toLowerCase();if(!_sq.split(/\s+/).every(w=>hay.includes(w)))return false;}
     return true;
   }).length;
-  $('#ingEmpty').style.display=(ING.length||ADDIN.length)?'none':'block';
-  $('#ingTotalCount').textContent=(ING.length||adFiltered)?'· '+(ING.length+adFiltered)+' total':'';
+  const ingOnHand=ING.filter(i=>onHandIds.has(i.id));
+  $('#ingEmpty').style.display=(ingOnHand.length||ADDIN.length)?'none':'block';
+  $('#ingTotalCount').textContent=(ingOnHand.length||adFiltered)?'· '+(ingOnHand.length+adFiltered)+' total':'';
   // Ingredient sections
-  const byCat={};ING.forEach(i=>{const c=i.category||'additive';(byCat[c]=byCat[c]||[]).push(i);});
+  const onHandIds=new Set(PUR.map(p=>p.ingredient_id));
+  const byCat={};ING.filter(i=>onHandIds.has(i.id)).forEach(i=>{const c=i.category||'additive';(byCat[c]=byCat[c]||[]).push(i);});
   let html='';
   CAT_ORDER.forEach(cat=>{
     const items=byCat[cat];if(!items||!items.length)return;
@@ -1183,27 +1192,47 @@ function renderPriceList(){
   });
   $('#plEmpty').style.display=filtered.length?'none':'block';
   $('#plTotalCount').textContent=filtered.length?'\u00b7 '+filtered.length+' items':'';
-  const byCat={};filtered.forEach(p=>{const c=p.category||'other';(byCat[c]=byCat[c]||[]).push(p);});
+  const byCat={};filtered.forEach(p=>{const c=p.category||'other';(byCat[c]=byCat[c]||[]).push({...p,_src:'pl'});});
+  // Also include ALL ING items in the price list (they are potential ingredients)
+  const plSearchQ=searchQ; // reuse same search
+  ING.filter(ing=>{
+    if(supFilter!=='*'&&'On Hand'!==supFilter)return false; // When filtering by supplier, skip ING unless "On Hand" selected
+    if(plSearchQ){const hay=[ing.name,ing.category].filter(Boolean).join(' ').toLowerCase();if(!plSearchQ.split(/\s+/).every(w=>hay.includes(w)))return false;}
+    return true;
+  }).forEach(ing=>{
+    const c=ing.category||'other';
+    // Only add if not already represented by a PL entry with same name
+    const alreadyIn=(byCat[c]||[]).some(x=>x.name&&ing.name&&x.name.toLowerCase().trim()===ing.name.toLowerCase().trim());
+    if(!alreadyIn)(byCat[c]=byCat[c]||[]).push({id:ing.id,name:ing.name,supplier:'On Hand',category:c,sap_naoh:ing.sap_naoh,cost_per_g:null,notes:ing.category,product_url:null,_src:'ing',_ingId:ing.id});
+  });
   let html='';
   PL_CAT.forEach(([cat,label])=>{
     const items=byCat[cat];if(!items||!items.length)return;
     const dot=PL_DOT[cat]||'var(--dim)';
-    const rows=items.map(p=>{
-      const cpg=p.cost_per_g?money4(p.cost_per_g)+'/g':'\u2014';
+    const onHandSet=new Set(PUR.map(p=>p.ingredient_id));
+      const rows=items.map(p=>{
+      const isIng=p._src==='ing';
+      const isOnHand=isIng&&onHandSet.has(p._ingId);
+      const ingObj=isIng?ING.find(x=>x.id===p._ingId):null;
+      const ingCost=ingObj?(()=>{const c=ingCosting(ingObj);return c.n?money4(c.buffered)+'/g':null;})():null;
+      const cpg=ingCost||(p.cost_per_g?money4(p.cost_per_g)+'/g':'\u2014');
       const sap=p.sap_naoh?p.sap_naoh:'\u2014';
       const nm=p.product_url?`<a href="${esc(p.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(p.name)} <span style="color:var(--accent);font-size:11px">\u2197</span></a>`:esc(p.name);
+      const badge=isOnHand?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:4px">on hand</span>':'';
+      const supplierCell=isIng?'<span class="dim" style="font-size:10px">ingredient library</span>':esc(p.supplier||'');
+      const actions=isIng
+        ?`<button class="btn ghost sm" onclick="logPurchaseFromPL('${p._ingId}')">log purchase</button>`
+        :`<button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${p.id}')">log purchase</button><button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${p.id}')">edit</button><button class="btn danger sm" onclick="delPl('${p.id}')">\u00d7</button>`;
       return `<tr>
-        <td>${nm}</td>
+        <td>${nm}${badge}</td>
+        <td class="dim" style="font-size:11px">${supplierCell}</td>
         <td class="dim" style="font-size:11px">${esc(p.notes||'')}</td>
         <td class="num dim mono" style="font-size:11px">${sap}</td>
         <td class="num">${cpg}</td>
-        <td class="num" style="white-space:nowrap">
-          <button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${p.id}')">log purchase</button>
-          <button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${p.id}')">edit</button>
-          <button class="btn danger sm" onclick="delPl('${p.id}')">\u00d7</button>
-        </td></tr>`;}).join('');
+        <td class="num" style="white-space:nowrap">${actions}</td></tr>`;
+      }).join('');
     html+=`<div class="cat-group"><div class="cat-head" onclick="toggleCat(this)"><span class="chev">\u25b6</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
-      <div class="cat-body"><table><thead><tr><th>Name</th><th>Notes / Grade</th><th class="num">SAP NaOH</th><th class="num">Cost/g</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="cat-body"><table><thead><tr><th>Name</th><th>Supplier</th><th>Grade / Notes</th><th class="num">SAP NaOH</th><th class="num">Cost/g</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   });
   $('#plGroups').innerHTML=html;
 }
