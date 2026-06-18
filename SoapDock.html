@@ -418,7 +418,7 @@
           <select id="plSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select>
         </div>
         <div style="display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap">
-          <input id="plSearch" type="search" placeholder="Search oils, butters, additives…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px">
+          <input id="plSearch" type="search" placeholder="Search oils, butters, additives…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer;white-space:nowrap"><input type="checkbox" id="plSearchNotes" checked style="cursor:pointer">search notes</label>
         </div>
         <div id="plGroups"></div>
         <div class="empty" id="plEmpty">No price list entries yet — run the Soaper's Choice SQL to populate.</div>
@@ -1199,9 +1199,10 @@ function renderPriceList(){
     if(supFilter!=='*'&&(p.supplier||'').trim()!==supFilter)return false;
     if(searchQ){
       const isScented=(p.category==='fragrance'||p.category==='eo'||p.category==='mica');
-      // Base ingredients: search name only (avoids 'oil' matching fragrance notes).
-      // Scented items: search name + notes (so 'oud rose' finds note matches).
-      const hay=(isScented
+      // 'search notes' toggle: when on, scented items also match on notes (oud rose).
+      // When off, name-only across everything (exact ingredient lookups).
+      const searchNotes=$('#plSearchNotes').checked;
+      const hay=((isScented&&searchNotes)
         ?[p.name,p.supplier,p.notes]
         :[p.name,p.supplier]).filter(Boolean).join(' ').toLowerCase();
       if(!searchQ.split(/\s+/).every(w=>hay.includes(w)))return false;
@@ -1267,6 +1268,7 @@ function renderPriceList(){
 
 $('#plSupFilter').onchange=()=>renderPriceList();
 $('#plSearch').addEventListener('input',renderPriceList);
+$('#plSearchNotes').addEventListener('change',renderPriceList);
 
 $('#plSave').onclick=async()=>{
   const pkgSize=num($('#plPkgSize').value);
