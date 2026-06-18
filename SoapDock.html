@@ -1198,7 +1198,12 @@ function renderPriceList(){
   const filtered=allItems.filter(p=>{
     if(supFilter!=='*'&&(p.supplier||'').trim()!==supFilter)return false;
     if(searchQ){
-      const hay=[p.name,p.supplier,p.notes].filter(Boolean).join(' ').toLowerCase();
+      const isScented=(p.category==='fragrance'||p.category==='eo'||p.category==='mica');
+      // Base ingredients: search name only (avoids 'oil' matching fragrance notes).
+      // Scented items: search name + notes (so 'oud rose' finds note matches).
+      const hay=(isScented
+        ?[p.name,p.supplier,p.notes]
+        :[p.name,p.supplier]).filter(Boolean).join(' ').toLowerCase();
       if(!searchQ.split(/\s+/).every(w=>hay.includes(w)))return false;
     }
     return true;
