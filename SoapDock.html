@@ -1251,9 +1251,10 @@ function renderPriceList(){
         <td class="num" style="white-space:nowrap">${actions}</td></tr>`;
     }).join('');
     const hasSap=!isAddin;
+    const plAutoOpen=!!(searchQ||supFilter!=='*');
     plHtml+=`<div class="cat-group">
-      <div class="cat-head" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
-      <div class="cat-body"><table><thead><tr><th>Name</th><th>Supplier</th><th>Notes</th>${hasSap?'<th class="num">SAP</th>':'<th></th>'}<th class="num">Cost</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="cat-head${plAutoOpen?' open':''}" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
+      <div class="cat-body${plAutoOpen?' open':''}"><table><thead><tr><th>Name</th><th>Supplier</th><th>Notes</th>${hasSap?'<th class="num">SAP</th>':'<th></th>'}<th class="num">Cost</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
   });
   $('#plGroups').innerHTML=plHtml;
