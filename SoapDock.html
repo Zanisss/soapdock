@@ -330,7 +330,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px"><h2 style="margin:0">On Hand Inventory <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="ingTotalCount"></span></h2><select id="adSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select></div>
           <div style="display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap"><input id="adSearch" type="search" placeholder="Search name, supplier, notes…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><input id="adPriceMin" type="number" step="0.01" min="0" placeholder="$/oz min" style="width:88px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><input id="adPriceMax" type="number" step="0.01" min="0" placeholder="$/oz max" style="width:88px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"></div>
           <div id="ingGroups"></div>
-          <div class="empty" id="ingEmpty">No ingredients yet.</div>
+          <div class="empty" id="ingEmpty">No ingredients on hand yet — log a purchase to add items here.</div>
         </div>
       </div>
     </div>
@@ -1084,19 +1084,12 @@ function renderIngredients(){
   const _sq=($('#adSearch').value||'').toLowerCase().trim();
   const _pMin=parseFloat($('#adPriceMin').value)||0;
   const _pMax=parseFloat($('#adPriceMax').value)||Infinity;
-  const adFiltered=ADDIN.filter(a=>{
-    if(supFilter!=='*'&&(a.supplier||'').trim()!==supFilter)return false;
-    const cost=parseFloat(a.cost)||0;
-    if(_pMin&&cost<_pMin)return false;
-    if(_pMax!==Infinity&&cost>_pMax)return false;
-    if(_sq){const hay=[a.name,a.supplier,a.note_top,a.note_mid,a.note_base,a.notes].filter(Boolean).join(' ').toLowerCase();if(!_sq.split(/\s+/).every(w=>hay.includes(w)))return false;}
-    return true;
-  }).length;
-  $('#ingEmpty').style.display=(ING.length||ADDIN.length)?'none':'block';
-  $('#ingTotalCount').textContent=(ING.length||adFiltered)?'· '+(ING.length+adFiltered)+' total':'';
+  const adFiltered=0;
+  const onHandItems=ING.filter(i=>ingPurchased(i)>0);
+  $('#ingEmpty').style.display=onHandItems.length?'none':'block';
+  $('#ingTotalCount').textContent=onHandItems.length?'· '+onHandItems.length+' total':'';
   // Ingredient sections
-  const onHandIds=new Set(PUR.map(p=>p.ingredient_id));
-  const byCat={};ING.forEach(i=>{const c=i.category||'additive';(byCat[c]=byCat[c]||[]).push(i);});
+  const byCat={};ING.filter(i=>ingPurchased(i)>0).forEach(i=>{const c=i.category||'additive';(byCat[c]=byCat[c]||[]).push(i);});
   let html='';
   CAT_ORDER.forEach(cat=>{
     const items=byCat[cat];if(!items||!items.length)return;
@@ -1111,34 +1104,7 @@ function renderIngredients(){
       <div class="cat-body"><table><thead><tr><th>Ingredient</th><th class="num">SAP</th><th class="num">Costing</th><th class="num">On hand</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
   });
-  // Add-in sections with colored catdots — same pattern as ingredient sections
-  const ADDIN_DOT={fragrance:'var(--warn)',eo:'var(--good)',mica:'var(--blue)'};
-  ADDIN_TYPES.forEach(([t,label])=>{
-    const searchQ=($('#adSearch').value||'').toLowerCase().trim();
-    const priceMin=parseFloat($('#adPriceMin').value)||0;
-    const priceMax=parseFloat($('#adPriceMax').value)||Infinity;
-    const items=ADDIN.filter(a=>{
-      if(a.type!==t)return false;
-      if(supFilter!=='*'&&(a.supplier||'').trim()!==supFilter)return false;
-      const cost=parseFloat(a.cost)||0;
-      if(priceMin&&cost<priceMin)return false;
-      if(priceMax!==Infinity&&cost>priceMax)return false;
-      if(searchQ){const hay=[a.name,a.supplier,a.note_top,a.note_mid,a.note_base,a.notes].filter(Boolean).join(' ').toLowerCase();if(!searchQ.split(/\s+/).every(w=>hay.includes(w)))return false;}
-      return true;
-    });
-    if(!items.length)return;
-    const unit=t==='mica'?'/¼tsp':'/oz';
-    const dot=ADDIN_DOT[t]||'var(--dim)';
-    const rows=items.map(a=>{const noteStr=t==='mica'?(a.notes||''):[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ');
-      const sw=a.image_url?`<img src="${esc(a.image_url)}" class="swatch" loading="lazy" onerror="this.style.display='none'">`:''
-      const nm=a.product_url?`<a href="${esc(a.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(a.name)} <span style="color:var(--accent);font-size:11px">↗</span></a>`:esc(a.name);
-      return `<tr><td><span style="display:flex;align-items:center;gap:8px">${sw}${nm}</span></td><td class="dim">${esc(a.supplier||'')}</td><td class="num">${money(a.cost)}${unit}</td><td class="dim" style="font-size:11px">${esc(noteStr)}</td>
-      <td class="num" style="white-space:nowrap"><button class="btn ghost sm" style="margin-right:6px" onclick="editAddinFn('${a.id}')">edit</button><button class="btn danger sm" onclick="delAddin('${a.id}')">×</button></td></tr>`;}).join('');
-    const autoOpen=!!(searchQ||priceMin||priceMax!==Infinity);
-    html+=`<div class="cat-group"><div class="cat-head${autoOpen?' open':''}" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
-      <div class="cat-body${autoOpen?' open':''}" ><table><thead><tr><th>Name</th><th>Supplier</th><th class="num">Cost</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-  });
-  $('#ingGroups').innerHTML=html;
+    $('#ingGroups').innerHTML=html;
 }
 window.toggleCat=el=>{el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');};
 $('#iSave').onclick=async()=>{
@@ -1177,25 +1143,42 @@ window.delPurch=async id=>{if(!confirm('Delete this purchase?'))return;await sb.
 function renderPriceList(){
   const searchQ=($('#plSearch').value||'').toLowerCase().trim();
 
-  // Build combined item list: ING items (tagged supplier='Library') + PL items
+  // Build combined item list from three sources:
+  // 1. ING  — ingredient library (oils, lye, waxes, additives)
+  // 2. PL   — supplier price list (Soaper's Choice etc.)
+  // 3. ADDIN — fragrances, EOs, micas (WSP, TFC, CandleScience, NG, Mad Micas)
   const onHandIds=new Set(PUR.map(p=>p.ingredient_id));
   const allItems=[];
 
+  // ING items — go into oil/wax/lye/additive/other categories
   ING.forEach(ing=>{
     allItems.push({
       _src:'ing', id:ing.id, name:ing.name,
-      supplier:'Library', category:ing.category||'other',
+      supplier:ing.supplier||'', category:ing.category||'other',
       sap_naoh:ing.sap_naoh, cost_per_g:null,
       notes:'', product_url:null,
       _ing:ing, _onHand:onHandIds.has(ing.id)
     });
   });
 
+  // PL items (Soaper's Choice etc.) — go into oil/wax/additive categories
   PL.forEach(p=>{
-    allItems.push({_src:'pl', _onHand:false, ...p});
+    allItems.push({_src:'pl', _onHand:false, _ing:null, ...p});
   });
 
-  // Rebuild supplier dropdown from ALL items (including Library)
+  // ADDIN items — fragrances → 'fragrance', EOs → 'eo', micas → 'mica'
+  ADDIN.forEach(a=>{
+    allItems.push({
+      _src:'addin', id:a.id, name:a.name,
+      supplier:a.supplier||'', category:a.type||'other',
+      sap_naoh:null, cost_per_g:a.cost||null,
+      notes:[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ')||a.notes||'',
+      product_url:a.product_url||null,
+      _ing:null, _onHand:false, _imgUrl:a.image_url||null
+    });
+  });
+
+  // Supplier dropdown from all items
   const supSel=$('#plSupFilter');
   const sups=[...new Set(allItems.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
   const cur=supSel.value||'*';
@@ -1214,46 +1197,56 @@ function renderPriceList(){
     return true;
   });
 
-  // Group by category — same order as On Hand
-  const PL_ORDER=['oil','wax','lye','liquid','additive','other'];
-  const PL_NAME={oil:'Oils / Butters',wax:'Waxes',lye:'Lye',liquid:'Liquids',additive:'Additives',other:'Other'};
-  const PL_COLOR={oil:'var(--warn)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',additive:'var(--good)',other:'var(--dim)'};
+  // Categories — same as On Hand plus fragrance/eo/mica for add-ins
+  const PL_ORDER=['oil','wax','lye','liquid','additive','fragrance','eo','mica','other'];
+  const PL_NAME={oil:'Oils / Butters',wax:'Waxes',lye:'Lye',liquid:'Liquids',additive:'Additives',fragrance:'Fragrances',eo:'Essential Oils',mica:'Micas',other:'Other'};
+  const PL_COLOR={oil:'var(--warn)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',additive:'var(--good)',fragrance:'var(--warn)',eo:'var(--good)',mica:'var(--blue)',other:'var(--dim)'};
 
   const byCat={};
   filtered.forEach(p=>{const c=p.category||'other';(byCat[c]=byCat[c]||[]).push(p);});
 
   const totalItems=filtered.length;
   $('#plEmpty').style.display=totalItems?'none':'block';
-  $('#plTotalCount').textContent=totalItems?'\u00b7 '+totalItems+' items':'';
+  $('#plTotalCount').textContent=totalItems?'· '+totalItems+' items':'';
 
   let plHtml='';
   PL_ORDER.forEach(cat=>{
     const items=byCat[cat];if(!items||!items.length)return;
     const dot=PL_COLOR[cat]||'var(--dim)';
     const label=PL_NAME[cat]||cat;
+    const isAddin=(cat==='fragrance'||cat==='eo'||cat==='mica');
+    const unit=cat==='mica'?'/¼tsp':'/oz';
     const rows=items.map(p=>{
       const isIng=p._src==='ing';
+      const isPlItem=p._src==='pl';
       const ingCost=isIng?(()=>{const c=ingCosting(p._ing);return c.n?money4(c.buffered)+'/g':null;})():null;
-      const cpg=ingCost||(p.cost_per_g?money4(p.cost_per_g)+'/g':'\u2014');
-      const sap=p.sap_naoh||'\u2014';
+      const cpg=isAddin
+        ?(p.cost_per_g?money(p.cost_per_g)+unit:'—')
+        :(ingCost||(p.cost_per_g?money4(p.cost_per_g)+'/g':'—'));
+      const sap=(!isAddin&&p.sap_naoh)?p.sap_naoh:(!isAddin?'—':'');
       const badge=p._onHand?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:4px">on hand</span>':'';
+      const sw=p._imgUrl?`<img src="${esc(p._imgUrl)}" class="swatch sm" loading="lazy" onerror="this.style.display='none'">` :'';
       const nm=p.product_url
-        ?`<a href="${esc(p.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(p.name)} <span style="color:var(--accent);font-size:11px">\u2197</span></a>`
-        :esc(p.name);
-      const actions=isIng
-        ?`<button class="btn ghost sm" onclick="logPurchaseFromPL('${p.id}')">log purchase</button>`
-        :`<button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${p.id}')">log purchase</button><button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${p.id}')">edit</button><button class="btn danger sm" onclick="delPl('${p.id}')">\u00d7</button>`;
+        ?`<a href="${esc(p.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${sw}${esc(p.name)} <span style="color:var(--accent);font-size:11px">↗</span></a>`
+        :`${sw}${esc(p.name)}`;
+      const supplierCell=esc(p.supplier||'—');
+      const notesCell=esc(p.notes||'');
+      const sapCell=!isAddin?`<td class="num dim mono" style="font-size:11px">${sap}</td>`:'<td></td>';
+      const actions=isPlItem
+        ?`<button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${p.id}')">log purchase</button><button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${p.id}')">edit</button><button class="btn danger sm" onclick="delPl('${p.id}')">×</button>`
+        :`<button class="btn ghost sm" onclick="logPurchaseFromPL('${p.id}')">log purchase</button>`;
       return `<tr>
-        <td>${nm}${badge}</td>
-        <td class="dim" style="font-size:11px">${esc(p.supplier||'')}</td>
-        <td class="dim" style="font-size:11px">${esc(p.notes||'')}</td>
-        <td class="num dim mono" style="font-size:11px">${sap}</td>
+        <td><span style="display:flex;align-items:center;gap:6px">${nm}${badge}</span></td>
+        <td class="dim" style="font-size:11px">${supplierCell}</td>
+        <td class="dim" style="font-size:11px">${notesCell}</td>
+        ${sapCell}
         <td class="num">${cpg}</td>
         <td class="num" style="white-space:nowrap">${actions}</td></tr>`;
     }).join('');
+    const hasSap=!isAddin;
     plHtml+=`<div class="cat-group">
-      <div class="cat-head" onclick="toggleCat(this)"><span class="chev">\u25b6</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
-      <div class="cat-body"><table><thead><tr><th>Name</th><th>Supplier</th><th>Grade / Notes</th><th class="num">SAP</th><th class="num">Cost/g</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="cat-head" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
+      <div class="cat-body"><table><thead><tr><th>Name</th><th>Supplier</th><th>Notes</th>${hasSap?'<th class="num">SAP</th>':'<th></th>'}<th class="num">Cost</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
   });
   $('#plGroups').innerHTML=plHtml;
