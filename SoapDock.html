@@ -1092,12 +1092,11 @@ function renderIngredients(){
     if(_sq){const hay=[a.name,a.supplier,a.note_top,a.note_mid,a.note_base,a.notes].filter(Boolean).join(' ').toLowerCase();if(!_sq.split(/\s+/).every(w=>hay.includes(w)))return false;}
     return true;
   }).length;
-  const ingOnHand=ING.filter(i=>onHandIds.has(i.id));
-  $('#ingEmpty').style.display=(ingOnHand.length||ADDIN.length)?'none':'block';
-  $('#ingTotalCount').textContent=(ingOnHand.length||adFiltered)?'· '+(ingOnHand.length+adFiltered)+' total':'';
+  $('#ingEmpty').style.display=(ING.length||ADDIN.length)?'none':'block';
+  $('#ingTotalCount').textContent=(ING.length||adFiltered)?'· '+(ING.length+adFiltered)+' total':'';
   // Ingredient sections
   const onHandIds=new Set(PUR.map(p=>p.ingredient_id));
-  const byCat={};ING.filter(i=>onHandIds.has(i.id)).forEach(i=>{const c=i.category||'additive';(byCat[c]=byCat[c]||[]).push(i);});
+  const byCat={};ING.forEach(i=>{const c=i.category||'additive';(byCat[c]=byCat[c]||[]).push(i);});
   let html='';
   CAT_ORDER.forEach(cat=>{
     const items=byCat[cat];if(!items||!items.length)return;
@@ -1190,8 +1189,7 @@ function renderPriceList(){
     if(searchQ){const hay=[p.name,p.supplier,p.notes].filter(Boolean).join(' ').toLowerCase();if(!searchQ.split(/\s+/).every(w=>hay.includes(w)))return false;}
     return true;
   });
-  $('#plEmpty').style.display=filtered.length?'none':'block';
-  $('#plTotalCount').textContent=filtered.length?'\u00b7 '+filtered.length+' items':'';
+  // empty state deferred until after ING items merged below
   const byCat={};filtered.forEach(p=>{const c=p.category||'other';(byCat[c]=byCat[c]||[]).push({...p,_src:'pl'});});
   // Also include ALL ING items in the price list (they are potential ingredients)
   const plSearchQ=searchQ; // reuse same search
@@ -1206,6 +1204,10 @@ function renderPriceList(){
     if(!alreadyIn)(byCat[c]=byCat[c]||[]).push({id:ing.id,name:ing.name,supplier:'On Hand',category:c,sap_naoh:ing.sap_naoh,cost_per_g:null,notes:ing.category,product_url:null,_src:'ing',_ingId:ing.id});
   });
   let html='';
+  // Now byCat has both PL and ING items - check empty state here
+  const totalPlItems=Object.values(byCat).reduce((a,v)=>a+v.length,0);
+  $('#plEmpty').style.display=totalPlItems?'none':'block';
+  $('#plTotalCount').textContent=totalPlItems?'· '+totalPlItems+' items':'';
   PL_CAT.forEach(([cat,label])=>{
     const items=byCat[cat];if(!items||!items.length)return;
     const dot=PL_DOT[cat]||'var(--dim)';
