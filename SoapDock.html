@@ -630,7 +630,7 @@ function renderDash(){
   $('#s-spend').textContent=money(PUR.reduce((a,p)=>a+num(p.price_paid),0));
   const rows=BAT.slice(0,8);$('#dashEmpty').style.display=rows.length?'none':'block';
   $('#dashBatches').innerHTML=rows.map(b=>{const m=MOLD.find(x=>x.id===b.mold_id);const cb=b.computed?num(b.computed.cost_per_bar):0;
-    return `<tr><td class="mono">${b.made_on}</td><td>${esc(b.recipe_name)}</td><td class="dim">${esc(b.snapshot?b.snapshot.name:'')}</td><td class="dim">${m?esc(m.name):'—'}</td><td class="num">${b.bars_made}</td><td class="num">${cb?money(cb):'—'}</td></tr>`;}).join('');
+    return `<tr><td class="mono">${b.made_on}</td><td>${esc(b.batch_name||b.recipe_name)}</td><td class="dim">${esc(b.recipe_name)}</td><td class="dim">${m?esc(m.name):'—'}</td><td class="num">${b.bars_made}</td><td class="num">${cb?money(cb):'—'}</td></tr>`;}).join('');
 }
 
 // ---- MAKE A BATCH ----
