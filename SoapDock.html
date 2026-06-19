@@ -1370,28 +1370,39 @@ function renderTrends(){
     const pcts=items.map(i=>parseFloat(i.pct_change)).filter(n=>!isNaN(n));
     const avg=pcts.length?pcts.reduce((a,b)=>a+b,0)/pcts.length:0;
     const ups=pcts.filter(n=>n>0).length, downs=pcts.filter(n=>n<0).length;
-    // Sparkline: chronological avg pct per change date
+    // Sparkline: cumulative price index. Starts at 100, compounds each change's
+    // % in chronological order. Line RISES when this vendor's prices climb,
+    // FALLS when they drop — matches the intuitive reading.
     const byDate={};
     items.forEach(i=>{const d=i.changed_on;if(!byDate[d])byDate[d]=[];if(!isNaN(parseFloat(i.pct_change)))byDate[d].push(parseFloat(i.pct_change));});
     const dates=Object.keys(byDate).sort();
-    const series=dates.map(d=>byDate[d].reduce((a,b)=>a+b,0)/byDate[d].length);
+    let idx=100; const series=[100];
+    dates.forEach(d=>{
+      const avgPct=byDate[d].reduce((a,b)=>a+b,0)/byDate[d].length;
+      idx=idx*(1+avgPct/100);
+      series.push(idx);
+    });
     return {sup,items,avg,ups,downs,series,count:items.length};
   }).sort((a,b)=>Math.abs(b.avg)-Math.abs(a.avg));
 
   const spark=(series)=>{
     if(series.length<2)return '';
-    const w=120,h=28,pad=2;
-    const min=Math.min(...series,0),max=Math.max(...series,0);
+    const w=120,h=28,pad=3;
+    const min=Math.min(...series),max=Math.max(...series);
     const rng=(max-min)||1;
     const pts=series.map((v,i)=>{
       const x=pad+(i/(series.length-1))*(w-2*pad);
       const y=h-pad-((v-min)/rng)*(h-2*pad);
       return x.toFixed(1)+','+y.toFixed(1);
     }).join(' ');
-    const zeroY=(h-pad-((0-min)/rng)*(h-2*pad)).toFixed(1);
+    // Color the line by net direction: end higher than start = prices rose (red), lower = fell (green)
+    const rose=series[series.length-1]>series[0];
+    const lineCol=series[series.length-1]===series[0]?'var(--dim)':(rose?'var(--bad)':'var(--good)');
+    // Baseline at the starting index (100) so you see departure from baseline
+    const baseY=(h-pad-((series[0]-min)/rng)*(h-2*pad)).toFixed(1);
     return `<svg width="${w}" height="${h}" style="overflow:visible">
-      <line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2,2"/>
-      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <line x1="0" y1="${baseY}" x2="${w}" y2="${baseY}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2,2"/>
+      <polyline points="${pts}" fill="none" stroke="${lineCol}" stroke-width="2" stroke-linejoin="round"/>
     </svg>`;
   };
 
