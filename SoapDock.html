@@ -139,6 +139,7 @@
     <button data-v="molds">Molds</button>
     <button data-v="ingredients">On Hand</button>
     <button data-v="pricelist">Price List</button>
+    <button data-v="trends">Price Trends</button>
     <button data-v="pricing">Pricing</button>
   </nav>
 
@@ -426,6 +427,23 @@
     </div>
   </div>
 
+  <!-- PRICE TRENDS -->
+  <div class="view" id="v-trends">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+        <h2 style="margin:0">Price Trends <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="trTotalCount"></span></h2>
+        <select id="trWindow" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px">
+          <option value="28">Last 4 weeks</option>
+          <option value="56">Last 8 weeks</option>
+          <option value="90">Last 90 days</option>
+          <option value="9999">All time</option>
+        </select>
+      </div>
+      <div id="trCards"></div>
+      <div class="empty" id="trEmpty">No price changes recorded yet \u2014 the weekly updater logs changes here as vendors move prices. Check back after a few weekly runs.</div>
+    </div>
+  </div>
+
   <!-- PRICING -->
   <div class="view" id="v-pricing">
     <div class="card">
@@ -487,7 +505,7 @@ async function loadTheme(){
 // paint instantly from last-known theme (no cyan flash) before auth resolves
 try{const c=localStorage.getItem('sd_theme');if(c)applyTheme(c);}catch(e){}
 
-let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[], PL=[], openIng=null, editRec=null, editPl=null;
+let ING=[], REC=[], BAT=[], PUR=[], MOLD=[], ADDIN=[], PL=[], PH=[], openIng=null, editRec=null, editPl=null;
 let mkMicaSel=[];
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
@@ -598,18 +616,19 @@ async function fetchAll(table, orderCol, opts){
   return {data:out, error};
 }
 async function loadAll(){
-  const [i,r,b,p,m,a,pl]=await Promise.all([
+  const [i,r,b,p,m,a,pl,ph]=await Promise.all([
     fetchAll('ingredients','name'),
     fetchAll('recipes','name'),
     fetchAll('batches','made_on',{ascending:false}),
     fetchAll('purchases','bought_on',{ascending:false}),
     fetchAll('molds','total_oil_g',{ascending:false}),
     fetchAll('addins','name'),
-    fetchAll('price_list','name')
+    fetchAll('price_list','name'),
+    fetchAll('price_history','changed_on',{ascending:false})
   ]);
   restOk=![i,r,b,p,m,a,pl].some(x=>x.error);
   refreshSync();
-  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];PL=pl.data||[];
+  ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];PL=pl.data||[];PH=(ph&&ph.data)||[];
   renderAll();
 }
 // ---- SYNC BADGE + REALTIME (REST decides online/offline; realtime only upgrades to "live") ----
@@ -641,7 +660,7 @@ function ingConsumed(ing){let u=0;BAT.forEach(b=>{const c=b.computed;if(!c)retur
 function ingStock(ing){const purchased=ingPurchased(ing),consumed=ingConsumed(ing);return{purchased,consumed,onHand:purchased-consumed};}
 
 // ---- RENDER ALL ----
-function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPriceList();renderPricing();if(openIng)renderIngDetail();}
+function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPriceList();renderTrends();renderPricing();if(openIng)renderIngDetail();}
 
 // ---- ADD-INS (fragrances / EOs / micas) ----
 const ADDIN_TYPES=[['fragrance','Fragrances'],['eo','Essential Oils'],['mica','Micas']];
@@ -1332,6 +1351,86 @@ window.logPurchaseFromPL=id=>{
   document.querySelector('#v-ingredients .card').scrollIntoView({behavior:'smooth'});
   toast('Switched to On Hand — check if ingredient exists, then log a purchase');
 };
+
+function renderTrends(){
+  const winDays=parseInt($('#trWindow').value||'28',10);
+  const cutoff=new Date(Date.now()-winDays*86400000).toISOString().slice(0,10);
+  const rows=PH.filter(h=>(h.changed_on||'')>=cutoff);
+
+  $('#trEmpty').style.display=rows.length?'none':'block';
+  $('#trTotalCount').textContent=rows.length?'\u00b7 '+rows.length+' changes':'';
+  if(!rows.length){$('#trCards').innerHTML='';return;}
+
+  // Group by supplier
+  const bySup={};
+  rows.forEach(h=>{(bySup[h.supplier]=bySup[h.supplier]||[]).push(h);});
+
+  // Build a card per supplier, sorted by absolute avg % change (biggest movers first)
+  const cards=Object.entries(bySup).map(([sup,items])=>{
+    const pcts=items.map(i=>parseFloat(i.pct_change)).filter(n=>!isNaN(n));
+    const avg=pcts.length?pcts.reduce((a,b)=>a+b,0)/pcts.length:0;
+    const ups=pcts.filter(n=>n>0).length, downs=pcts.filter(n=>n<0).length;
+    // Sparkline: chronological avg pct per change date
+    const byDate={};
+    items.forEach(i=>{const d=i.changed_on;if(!byDate[d])byDate[d]=[];if(!isNaN(parseFloat(i.pct_change)))byDate[d].push(parseFloat(i.pct_change));});
+    const dates=Object.keys(byDate).sort();
+    const series=dates.map(d=>byDate[d].reduce((a,b)=>a+b,0)/byDate[d].length);
+    return {sup,items,avg,ups,downs,series,count:items.length};
+  }).sort((a,b)=>Math.abs(b.avg)-Math.abs(a.avg));
+
+  const spark=(series)=>{
+    if(series.length<2)return '';
+    const w=120,h=28,pad=2;
+    const min=Math.min(...series,0),max=Math.max(...series,0);
+    const rng=(max-min)||1;
+    const pts=series.map((v,i)=>{
+      const x=pad+(i/(series.length-1))*(w-2*pad);
+      const y=h-pad-((v-min)/rng)*(h-2*pad);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    const zeroY=(h-pad-((0-min)/rng)*(h-2*pad)).toFixed(1);
+    return `<svg width="${w}" height="${h}" style="overflow:visible">
+      <line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2,2"/>
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    </svg>`;
+  };
+
+  $('#trCards').innerHTML=cards.map(c=>{
+    const up=c.avg>0;
+    const arrow=up?'\u2191':(c.avg<0?'\u2193':'\u2192');
+    const col=up?'var(--bad)':(c.avg<0?'var(--good)':'var(--dim)');
+    const sign=c.avg>0?'+':'';
+    // Top 3 individual movers in this window
+    const movers=[...c.items].sort((a,b)=>Math.abs(parseFloat(b.pct_change)||0)-Math.abs(parseFloat(a.pct_change)||0)).slice(0,3);
+    const moverRows=movers.map(m=>{
+      const p=parseFloat(m.pct_change);
+      const pc=isNaN(p)?'':(p>0?'+':'')+p.toFixed(1)+'%';
+      const pcol=p>0?'var(--bad)':(p<0?'var(--good)':'var(--dim)');
+      return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">
+        <span class="dim" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">${esc(m.item_name)}</span>
+        <span class="mono">${money4(m.old_cost)} \u2192 ${money4(m.new_cost)} <span style="color:${pcol}">${pc}</span></span>
+      </div>`;}).join('');
+    return `<div class="cat-group" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--panel2);border-radius:10px 10px 0 0;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:600">${esc(c.sup)}</div>
+          <div class="dim mono" style="font-size:11px">${c.count} change${c.count===1?'':'s'} \u00b7 ${c.ups}\u2191 ${c.downs}\u2193</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          ${spark(c.series)}
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:700;color:${col}">${arrow} ${sign}${c.avg.toFixed(1)}%</div>
+            <div class="dim mono" style="font-size:10px">avg change</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:8px 14px;background:var(--panel);border-radius:0 0 10px 10px;border:1px solid var(--line);border-top:none">
+        ${moverRows}
+      </div>
+    </div>`;
+  }).join('');
+}
+$('#trWindow').onchange=()=>renderTrends();
 
 function renderPricing(){
   const cr=$('#prRecipe').value;fillRecipeSelect($('#prRecipe'));if(cr)$('#prRecipe').value=cr;
