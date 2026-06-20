@@ -968,7 +968,7 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
       <div style="flex:1;min-width:240px">
         <h3>This batch</h3>
         <p class="mono" style="font-size:12px"><span class="dim">Fragrance:</span> ${esc(b.fragrance_name||'—')} ${b.fragrance_manuf?'('+esc(b.fragrance_manuf)+')':''}</p>
-        ${(b.addins&&b.addins.length)?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Add-ins:</span> ${b.addins.map(a=>esc(a.name)+(a.type==='mica'?'':' '+a.oz+'oz')).join(', ')}</p>`:''}
+        ${(b.addins&&b.addins.length)?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Add-ins:</span> ${b.addins.map(a=>esc(a.name)+(a.type==='mica'?'':a.type==='additive'?' '+(a.amt||'')+(a.unit?(' '+a.unit):''):a.oz?' '+a.oz+'oz':'')).join(', ')}</p>`:''}
         ${ov?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Swaps:</span></p><ul style="font-family:var(--mono);font-size:12px;margin-left:18px">${ov}</ul>`:''}
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Topping:</span> ${esc(b.topping||'—')}</p>
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Appearance:</span> ${esc(b.appearance||'—')}</p>
