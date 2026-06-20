@@ -1524,7 +1524,20 @@ window.blLoadTemplate=function(key){
   // Find matching oils in library (case-insensitive partial match)
   const resolved=[];
   tmpl.oils.forEach(([name,pct])=>{
-    const ing=ING.find(i=>i.category==='oil'&&i.name.toLowerCase()===name.toLowerCase());
+    // Fuzzy match: exact first, then check if all words in template name appear in ingredient name or vice versa
+    const nameLow=name.toLowerCase();
+    const nameWords=nameLow.replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(w=>w.length>2);
+    const ing=ING.find(i=>{
+      if(i.category!=='oil') return false;
+      const iLow=i.name.toLowerCase();
+      if(iLow===nameLow) return true; // exact
+      // all significant words of template name appear in ingredient name
+      if(nameWords.every(w=>iLow.includes(w))) return true;
+      // all significant words of ingredient name appear in template name
+      const iWords=iLow.replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(w=>w.length>2);
+      if(iWords.every(w=>nameLow.includes(w))) return true;
+      return false;
+    });
     if(ing) resolved.push({ingredient_id:ing.id,pct});
   });
   if(!resolved.length){toast('None of these oils are in your library yet');return;}
