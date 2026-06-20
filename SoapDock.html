@@ -1070,8 +1070,50 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
     </div>`;
   renderBatchPhotos(b);
 };
+// ---- Desktop batch edit: additive lines state ----
+let ebAddLines=[]; // [{ingredient_id, name, amt, unit}]
+const EB_UNITS=['g','oz','tsp','tbsp','ml','pinch'];
+
+function ebRenderAddLines(){
+  const container=$('#ebAddLines');if(!container)return;
+  container.innerHTML=ebAddLines.map((l,i)=>{
+    const unitOpts=EB_UNITS.map(u=>`<option${u===l.unit?' selected':''}>${u}</option>`).join('');
+    return `<div style="display:grid;grid-template-columns:1fr 90px 90px 28px;gap:8px;align-items:center;margin-bottom:6px">
+      <span style="font-family:var(--mono);font-size:13px">${esc(l.name)}</span>
+      <input type="number" step="0.5" value="${esc(l.amt||'')}" placeholder="amt"
+        style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 8px;border-radius:6px;font-size:13px;font-family:var(--mono);text-align:right;width:100%"
+        oninput="ebAddLines[${i}].amt=this.value">
+      <select onchange="ebAddLines[${i}].unit=this.value"
+        style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 6px;border-radius:6px;font-size:13px;font-family:var(--mono);width:100%">
+        ${unitOpts}
+      </select>
+      <button onclick="ebAddLines.splice(${i},1);ebRenderAddLines()"
+        style="background:transparent;border:1px solid var(--line);color:var(--bad);border-radius:6px;padding:5px 0;cursor:pointer;font-family:var(--mono);width:100%">×</button>
+    </div>`;
+  }).join('');
+  // Add button
+  const ingOpts=ING.filter(i=>i.category==='additive').map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join('');
+  container.innerHTML+=`<div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+    <select id="ebAddPicker" style="flex:1;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 8px;border-radius:6px;font-size:13px;font-family:var(--mono)">
+      <option value="">+ add an additive…</option>${ingOpts}
+    </select>
+    <button class="btn ghost sm" onclick="ebPickAdditive()">Add</button>
+  </div>`;
+}
+window.ebPickAdditive=()=>{
+  const sel=$('#ebAddPicker');if(!sel||!sel.value)return;
+  const ing=ingById(sel.value);if(!ing)return;
+  if(ebAddLines.find(l=>l.ingredient_id===ing.id)){toast('Already in list');return;}
+  ebAddLines.push({ingredient_id:ing.id,name:ing.name,amt:'',unit:'g'});
+  ebRenderAddLines();
+};
+
 window.editBatchFields=id=>{
   const b=BAT.find(x=>x.id===id);if(!b)return;
+  // Load current additives
+  ebAddLines=(b.addins||[]).filter(a=>a.type==='additive').map(a=>({
+    ingredient_id:a.ingredient_id,name:a.name,amt:a.amt||'',unit:a.unit||'g'
+  }));
   const F=(label,fid,val,type)=>`<div class="field"><label>${label}</label><input id="${fid}" type="${type||'text'}" value="${esc(val||'')}"></div>`;
   $('#batchDetail').innerHTML=`
     <h2>Edit batch <span class="pill sd" style="margin-left:8px">${esc(b.batch_name||b.recipe_name)}</span></h2>
@@ -1091,18 +1133,44 @@ window.editBatchFields=id=>{
       ${F('Scent — base','ebBase',b.scent_base)}
     </div>
     <div class="field"><label>Craft notes</label><textarea id="ebNotes" rows="3" style="width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:10px;border-radius:8px;font-family:var(--mono)">${esc(b.notes_craft||'')}</textarea></div>
-    <p class="dim mono" style="font-size:11px">Fragrances, micas, additives, and photos are edited from the iPad entry app (edit button on the batch card).</p>
-    <button class="btn primary" onclick="saveBatchFields('${b.id}')">Save changes</button>
-    <button class="btn ghost" onclick="openBatch('${b.id}')">Cancel</button>`;
+    <div class="field" style="margin-top:14px">
+      <label>Additives</label>
+      <div id="ebAddLines"></div>
+    </div>
+    <div style="margin-top:18px;display:flex;gap:8px">
+      <button class="btn" onclick="saveBatchFields('${b.id}')">Save changes</button>
+      <button class="btn ghost" onclick="openBatch('${b.id}')">Cancel</button>
+    </div>`;
+  ebRenderAddLines();
 };
 window.saveBatchFields=async id=>{
-  const upd={batch_name:$('#ebName').value.trim()||null,made_on:$('#ebDate').value,bars_made:num($('#ebBars').value),
-    earliest_ready:$('#ebReady').value||null,topping:$('#ebTopping').value,appearance:$('#ebAppearance').value,
-    scent_top:$('#ebTop').value,scent_mid:$('#ebMid').value,scent_base:$('#ebBase').value,notes_craft:$('#ebNotes').value};
+  const b=BAT.find(x=>x.id===id);if(!b)return;
+  // Rebuild addins: keep non-additive entries (frags/micas/EOs) + new additive lines
+  const nonAdditives=(b.addins||[]).filter(a=>a.type!=='additive');
+  const newAdditives=ebAddLines.map(l=>{
+    const ing=ingById(l.ingredient_id);
+    const c=ingCosting(ing||{});
+    const toG=l.unit==='g'?1:l.unit==='oz'?28.3495:l.unit==='tsp'?4:l.unit==='tbsp'?12:1;
+    const cost=c.n>0&&l.amt?num(l.amt)*toG*c.buffered:0;
+    return {ingredient_id:l.ingredient_id,name:l.name,type:'additive',amt:l.amt,unit:l.unit,cost};
+  });
+  const upd={
+    batch_name:$('#ebName').value.trim()||null,
+    made_on:$('#ebDate').value,
+    bars_made:num($('#ebBars').value),
+    earliest_ready:$('#ebReady').value||null,
+    topping:$('#ebTopping').value,
+    appearance:$('#ebAppearance').value,
+    scent_top:$('#ebTop').value,
+    scent_mid:$('#ebMid').value,
+    scent_base:$('#ebBase').value,
+    notes_craft:$('#ebNotes').value,
+    addins:[...nonAdditives,...newAdditives]
+  };
   const {error}=await sb.from('batches').update(upd).eq('id',id);
   if(error){toast('Error: '+error.message);return;}
-  const b=BAT.find(x=>x.id===id);if(b)Object.assign(b,upd);
-  toast('Batch updated');openBatch(id);renderBatches();
+  Object.assign(b,upd);
+  toast('Batch updated ✓');openBatch(id);renderBatches();
 };
 window.saveBatchPh=async id=>{
   const b=BAT.find(x=>x.id===id);if(!b)return;
