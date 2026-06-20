@@ -1255,6 +1255,16 @@ function renderPriceList(){
       const cpg=isAddin
         ?(p.cost_per_g?money(p.cost_per_g)+unit:'—')
         :(ingCost||(p.cost_per_g?money4(p.cost_per_g)+'/g':'—'));
+      // Pack info: show the size + total pack price so per-g isn't a false leader.
+      // Derive pack price from cost_per_g × grams-in-pack (we store cost/g, not pack price).
+      const G_PER={lb:453.592,kg:1000,g:1,oz:28.3495,'fl oz':29.5735};
+      let packInfo='';
+      if(!isAddin && !isIng && p.pkg_size && p.pkg_unit && p.cost_per_g){
+        const gp=G_PER[(p.pkg_unit||'').toLowerCase()]||0;
+        const packPrice=gp?p.cost_per_g*p.pkg_size*gp:0;
+        const unitLbl=UNIT_LBL[p.pkg_unit]||p.pkg_unit;
+        packInfo=packPrice?`<div class="dim mono" style="font-size:10px;margin-top:1px">${p.pkg_size} ${unitLbl} @ ${money(packPrice)}</div>`:'';
+      }
       const sap=(!isAddin&&p.sap_naoh)?p.sap_naoh:(!isAddin?'—':'');
       const badge=p._onHand?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:4px">on hand</span>':'';
       const sw=p._imgUrl?`<img src="${esc(p._imgUrl)}" class="swatch sm" loading="lazy" onerror="this.style.display='none'">` :'';
@@ -1272,7 +1282,7 @@ function renderPriceList(){
         <td class="dim" style="font-size:11px">${supplierCell}</td>
         <td class="dim" style="font-size:11px">${notesCell}</td>
         ${sapCell}
-        <td class="num">${cpg}</td>
+        <td class="num">${cpg}${packInfo}</td>
         <td class="num" style="white-space:nowrap">${actions}</td></tr>`;
     }).join('');
     const hasSap=!isAddin;
