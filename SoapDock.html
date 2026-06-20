@@ -1135,6 +1135,26 @@ $('#reSave').onclick=async()=>{
 // ---- RECIPE BUILDER ----
 let blLines = []; // [{ingredient_id, pct}]
 
+// What each quality means for the bar — shown on oil cards
+const Q_DESC={
+  hardness:  'How firm the finished bar is. High = longer-lasting, better for humid climates.',
+  cleansing: 'Oil-cutting power. High = strips skin oils — great for dirty hands, harsh for sensitive skin.',
+  conditioning:'Skin feel after washing. High = moisturizing, silky, less drying.',
+  bubbly:    'Big, fluffy lather — the kind you see right away. Coconut & castor drive this.',
+  creamy:    'Stable, lotion-like lather. Works with bubbly for a full lather profile.',
+  iodine:    'Softness/unsaturation of the oils. High = softer bar, shorter shelf life.',
+  ins:       'Overall balance score. Target 136–165 for a well-rounded bar.'
+};
+const Q_ROLE={
+  hardness:  {icon:'▮', label:'Hardness',   color:'var(--blue)'},
+  cleansing: {icon:'◆', label:'Cleansing',  color:'var(--warn)'},
+  conditioning:{icon:'●',label:'Conditioning',color:'var(--good)'},
+  bubbly:    {icon:'◎', label:'Bubbly',     color:'var(--accent)'},
+  creamy:    {icon:'○', label:'Creamy',     color:'var(--violet)'},
+  iodine:    {icon:'◇', label:'Iodine',     color:'var(--dim)'},
+  ins:       {icon:'◈', label:'INS',        color:'var(--dim)'}
+};
+
 function renderBuilderOilCards(){
   const filter = ($('#blFilter').value||'').toLowerCase();
   const oils = ING.filter(i=>i.category==='oil' && (!filter||i.name.toLowerCase().includes(filter)));
@@ -1142,18 +1162,37 @@ function renderBuilderOilCards(){
   $('#blOilCards').innerHTML = oils.length ? oils.map(ing=>{
     const q = ing.qualities||{};
     const added = inFormula.has(ing.id);
-    const bars = Q_KEYS.filter(k=>k!=='iodine'&&k!=='ins').map(k=>{
-      const[,lo,hi]=Q_META[k]; const v=num(q[k]);
-      const ok = v>=lo&&v<=hi;
-      return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-family:var(--mono);color:${ok?'var(--good)':'var(--dim)'}">
-        <span style="text-transform:capitalize">${k.slice(0,4)}</span><b>${v||'?'}</b></span>`;
-    }).join('<span style="color:var(--line);margin:0 2px">·</span>');
+    const hasSomeQ = Q_KEYS.some(k=>q[k]);
+    // Quality pill row: each pill shows label + value, colored by in/out of range
+    const pills = hasSomeQ ? Q_KEYS.map(k=>{
+      const[,lo,hi]=Q_META[k]; const v=num(q[k]); const r=Q_ROLE[k];
+      if(!v) return '';
+      const ok=v>=lo&&v<=hi;
+      const title=`${r.label}: ${v} (ideal ${lo}–${hi}) — ${Q_DESC[k]}`;
+      return `<span title="${esc(title)}" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-family:var(--mono);background:var(--bg);border:1px solid ${ok?r.color:'var(--line)'};color:${ok?r.color:'var(--dim)'};border-radius:4px;padding:2px 6px;cursor:default">
+        <span>${r.icon}</span><span style="text-transform:uppercase;font-size:9px;letter-spacing:.3px">${r.label.slice(0,4)}</span><b style="font-size:11px">${v}</b>
+      </span>`;
+    }).filter(Boolean).join(' ') : '';
+    // Contribution blurb: pick the 2 standout qualities this oil brings
+    let blurb='';
+    if(hasSomeQ){
+      const standouts=[];
+      if(num(q.bubbly)>=20) standouts.push('big lather');
+      if(num(q.cleansing)>=18) standouts.push('strong cleanser');
+      if(num(q.conditioning)>=60) standouts.push('very conditioning');
+      else if(num(q.conditioning)>=44) standouts.push('conditioning');
+      if(num(q.hardness)>=50) standouts.push('hard bar');
+      if(num(q.creamy)>=30) standouts.push('creamy lather');
+      if(num(q.iodine)<=40) standouts.push('long shelf life');
+      if(num(q.iodine)>=65) standouts.push('soft bar / DOS risk');
+      if(standouts.length) blurb=`<div style="font-size:10px;font-family:var(--mono);color:var(--dim);margin-top:5px;line-height:1.4">${standouts.slice(0,3).join(' · ')}</div>`;
+    }
     return `<div onclick="blAddOil('${ing.id}')" style="background:var(--panel2);border:1px solid ${added?'var(--accent)':'var(--line)'};border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--accent2)'" onmouseleave="this.style.borderColor='${added?'var(--accent)':'var(--line)'}'">
-      <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${added?'var(--accent)':'var(--txt)'}">${esc(ing.name)}</span>
-        ${added?'<span style="font-family:var(--mono);font-size:10px;color:var(--accent)">✓ in formula</span>':'<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">+ add</span>'}
+        ${added?'<span style="font-family:var(--mono);font-size:10px;color:var(--accent)">✓ added</span>':'<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">+ add</span>'}
       </div>
-      ${(q.hardness||q.cleansing||q.conditioning)?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:6px">${bars}</div>`:'<div style="font-size:10px;font-family:var(--mono);color:var(--dim);margin-top:3px">no quality data</div>'}
+      ${hasSomeQ?`<div style="display:flex;flex-wrap:wrap;gap:4px">${pills}</div>${blurb}`:'<div style="font-size:10px;font-family:var(--mono);color:var(--dim)">no quality data on file</div>'}
     </div>`;
   }).join('') : '<div class="dim mono" style="font-size:12px;padding:12px 0">No oils match.</div>';
 }
