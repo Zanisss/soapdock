@@ -956,49 +956,91 @@ function renderBatches(){
 }
 window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.find(x=>x.id===b.mold_id);const c=b.computed||{};
   $('#batchListWrap').style.display='none';$('#batchDetailWrap').style.display='block';
-  const oils=(c.oils||[]).map(o=>`<tr><td>${esc(o.name)}</td><td class="num">${num(o.g).toFixed(1)} g</td></tr>`).join('');
-  const ov=(b.overrides||[]).map(o=>{const ing=ingById(o.ingredient_id);return ing?`<li>${esc(ing.name)} — ${o.mode==='mark'?'✓':(o.mode==='pct'?o.pct+'%':o.amt+' '+o.mode)}</li>`:'';}).join('');
+
+  // Oil rows with g + oz
+  const oils=(c.oils||[]).map(o=>`<tr>
+    <td class="mono" style="font-size:12px">${esc(o.name)}</td>
+    <td class="num mono" style="font-size:12px">${num(o.g).toFixed(1)} g</td>
+    <td class="num dim mono" style="font-size:12px">${(num(o.g)/28.3495).toFixed(2)} oz</td>
+  </tr>`).join('');
+  const oilsTotal=(c.oils||[]).reduce((s,o)=>s+num(o.g),0);
+
+  // Add-in rows
+  const addinRows=(b.addins||[]).map(a=>{
+    const amt=a.type==='mica'?'¼ tsp':a.type==='additive'?(a.amt||'')+(a.unit?' '+a.unit:''):(a.oz?a.oz+' oz':'—');
+    const cost=a.cost?`<span style="color:var(--good)">${money(a.cost)}</span>`:'';
+    return `<tr><td class="mono" style="font-size:12px">${esc(a.name)}</td><td class="num mono" style="font-size:12px;color:var(--dim)">${amt}</td><td class="num mono" style="font-size:12px">${cost}</td></tr>`;
+  }).join('');
+  const addinTotal=(b.addins||[]).reduce((s,a)=>s+num(a.cost),0);
+
+  // pH log
+  const phTests=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+  const phLegacy=b.ph_result&&!phTests.length?[{date:b.ph_date||'',ph:b.ph_result}]:[];
+  const phAll=phLegacy.concat(phTests);
+  const phHtml=phAll.length?phAll.map(x=>`<span class="pill" style="margin:0 4px 4px 0">${esc(String(x.ph))}${x.date?' · '+x.date:''}</span>`).join(''):'—';
+
+  // Swaps
+  const ov=(b.overrides||[]).map(o=>{const ing=ingById(o.ingredient_id);return ing?`<div class="mono" style="font-size:11px;color:var(--dim)">${esc(ing.name)} → ${o.mode==='mark'?'✓':(o.mode==='pct'?o.pct+'%':o.amt+' '+o.mode)}</div>`:'';}).join('');
+
   $('#batchDetail').innerHTML=`
-    <h2>${esc(b.batch_name||b.recipe_name)} <span class="pill sd" style="margin-left:8px">${b.made_on}</span>
-      <button class="btn ghost sm" style="margin-left:12px" onclick="editBatchFields('${b.id}')">edit</button></h2>
-    <div class="costline"><span><span class="k">Recipe</span> <b>${esc(b.snapshot?b.snapshot.name:'')}</b></span><span><span class="k">Mold</span> <b>${m?esc(m.name):'—'}</b></span><span><span class="k">Bars made</span> <b>${b.bars_made}</b></span><span><span class="k">Cost/bar</span> <span class="use">${money(num(c.cost_per_bar))}</span></span></div>
-    <div class="row" style="margin-top:14px">
-      <div style="flex:1;min-width:240px"><h3>Oils</h3><table>${oils}</table>
-        <div class="costline" style="margin-top:8px"><span><span class="k">Lye</span> <b>${num(c.lye_g).toFixed(1)} g</b></span><span><span class="k">Water</span> <b>${num(c.water_g).toFixed(1)} g</b></span><span><span class="k">SF</span> <b>${b.superfat}%</b></span></div></div>
-      <div style="flex:1;min-width:240px">
-        <h3>This batch</h3>
-        <p class="mono" style="font-size:12px"><span class="dim">Fragrance:</span> ${esc(b.fragrance_name||'—')} ${b.fragrance_manuf?'('+esc(b.fragrance_manuf)+')':''}</p>
-        ${(b.addins&&b.addins.length)?`<div style="margin-top:10px"><span class="dim mono" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Add-ins</span>
-          <table style="width:100%;margin-top:4px">
-            ${b.addins.map(a=>{
-              const amt = a.type==='mica' ? '¼ tsp' : a.type==='additive' ? (a.amt||'')+(a.unit?' '+a.unit:'') : (a.oz?a.oz+' oz':'—');
-              const cost = a.cost?money(a.cost):'';
-              return `<tr><td class="mono" style="font-size:12px">${esc(a.name)}</td><td class="num mono" style="font-size:12px">${amt}</td><td class="num dim mono" style="font-size:12px">${cost}</td></tr>`;
-            }).join('')}
-          </table></div>`:''}
-        ${ov?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Swaps:</span></p><ul style="font-family:var(--mono);font-size:12px;margin-left:18px">${ov}</ul>`:''}
-        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Topping:</span> ${esc(b.topping||'—')}</p>
-        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Appearance:</span> ${esc(b.appearance||'—')}</p>
-        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Scent:</span> ${esc(b.scent_top||'')} / ${esc(b.scent_mid||'')} / ${esc(b.scent_base||'')}</p>
-        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Ready:</span> ${readyDate(b)||'—'} ${cureStatusHTML(b)}</p>
-        <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">pH checks:</span> wk 3 → ${fmtMD(addDays(b.made_on,PH_CHECK_1))} · wk 4 → ${fmtMD(addDays(b.made_on,PH_CHECK_2))}</p>
-        <div class="mono" style="font-size:12px;margin-top:6px"><span class="dim">pH log:</span>
-          ${(()=>{const t=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
-            const legacy=b.ph_result&&!t.length?[{date:b.ph_date||'',ph:b.ph_result}]:[];
-            const all=legacy.concat(t);
-            return all.length?all.map(x=>`<span class="pill" style="margin:0 4px 4px 0">${esc(String(x.ph))}${x.date?' · '+x.date:''}</span>`).join(''):' —';})()}
-        </div>
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-          <input type="date" id="bdPhDate" value="${todayStr()}" style="padding:7px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:7px">
-          <input type="number" step="0.1" id="bdPhVal" placeholder="pH" style="width:70px;padding:7px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:7px;text-align:right;font-family:var(--mono)">
+    <!-- Header bar -->
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="margin:0">${esc(b.batch_name||b.recipe_name)}</h2>
+      <span class="pill sd">${b.made_on}</span>
+      <button class="btn ghost sm" onclick="editBatchFields('${b.id}')">edit</button>
+    </div>
+
+    <!-- Summary stat pills -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-family:var(--mono);font-size:12px">
+      <span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">Recipe</span> <b>${esc(b.snapshot?b.snapshot.name:'—')}</b></span>
+      <span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">Mold</span> <b>${m?esc(m.name):'—'}</b></span>
+      <span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">Bars</span> <b>${b.bars_made}</b></span>
+      <span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">SF</span> <b>${b.superfat}%</b></span>
+      <span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">Oils</span> <b>${oilsTotal.toFixed(0)} g</b> <span class="dim">${(oilsTotal/28.3495).toFixed(1)} oz</span></span>
+      <span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">Lye</span> <b>${num(c.lye_g).toFixed(1)} g</b></span>
+      <span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">Water</span> <b>${num(c.water_g).toFixed(1)} g</b></span>
+      <span style="background:var(--panel2);border:1px solid var(--accent);border-radius:6px;padding:4px 10px"><span class="dim">$/bar</span> <b style="color:var(--good)">${money(num(c.cost_per_bar))}</b></span>
+      ${readyDate(b)?`<span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px"><span class="dim">Ready</span> <b>${readyDate(b)}</b> ${cureStatusHTML(b)}</span>`:''}
+    </div>
+
+    <!-- Three column body -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start">
+
+      <!-- Col 1: Oils -->
+      <div>
+        <div class="dim mono" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Oils</div>
+        <table style="width:100%">${oils}</table>
+      </div>
+
+      <!-- Col 2: Add-ins -->
+      <div>
+        <div class="dim mono" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Add-ins ${addinTotal?`<span style="color:var(--good);text-transform:none">${money(addinTotal)}</span>`:''}</div>
+        ${addinRows?`<table style="width:100%">${addinRows}</table>`:'<span class="dim mono" style="font-size:11px">none</span>'}
+        ${ov?`<div style="margin-top:10px"><div class="dim mono" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Swaps</div>${ov}</div>`:''}
+      </div>
+
+      <!-- Col 3: Batch notes -->
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="dim mono" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Batch notes</div>
+        ${b.fragrance_name?`<div class="mono" style="font-size:12px"><span class="dim">Fragrance</span> ${esc(b.fragrance_name)} ${b.fragrance_manuf?'<span class="dim">('+esc(b.fragrance_manuf)+')</span>':''}</div>`:''}
+        ${b.topping?`<div class="mono" style="font-size:12px"><span class="dim">Topping</span> ${esc(b.topping)}</div>`:''}
+        ${b.appearance?`<div class="mono" style="font-size:12px"><span class="dim">Appearance</span> ${esc(b.appearance)}</div>`:''}
+        ${(b.scent_top||b.scent_mid||b.scent_base)?`<div class="mono" style="font-size:12px"><span class="dim">Scent</span> ${esc(b.scent_top||'—')} / ${esc(b.scent_mid||'—')} / ${esc(b.scent_base||'—')}</div>`:''}
+        <div class="mono" style="font-size:12px"><span class="dim">pH checks</span> wk 3 → ${fmtMD(addDays(b.made_on,PH_CHECK_1))} · wk 4 → ${fmtMD(addDays(b.made_on,PH_CHECK_2))}</div>
+        <div class="mono" style="font-size:12px"><span class="dim">pH log</span> ${phHtml}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
+          <input type="date" id="bdPhDate" value="${todayStr()}" style="padding:6px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;font-size:12px">
+          <input type="number" step="0.1" id="bdPhVal" placeholder="pH" style="width:60px;padding:6px;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;text-align:right;font-family:var(--mono);font-size:12px">
           <button class="btn ghost sm" onclick="saveBatchPh('${b.id}')">+ log pH</button>
         </div>
-        ${b.notes_craft?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Notes:</span> ${esc(b.notes_craft)}</p>`:''}
+        ${b.notes_craft?`<div class="mono" style="font-size:12px;margin-top:4px;color:var(--dim)">${esc(b.notes_craft)}</div>`:''}
       </div>
     </div>
+
+    <!-- Photos -->
     <div style="margin-top:18px">
-      <h3>Photos</h3>
-      <div id="batchPhotoGrid" style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0"></div>
+      <div class="dim mono" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Photos</div>
+      <div id="batchPhotoGrid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px"></div>
       <input id="batchPhotoInput" type="file" accept="image/*" multiple style="display:none">
       <button class="btn ghost sm" id="batchPhotoBtn">📷 Add photo</button>
       <span id="batchPhotoStatus" class="dim mono" style="font-size:11px;margin-left:8px"></span>
