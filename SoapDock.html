@@ -968,7 +968,14 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
       <div style="flex:1;min-width:240px">
         <h3>This batch</h3>
         <p class="mono" style="font-size:12px"><span class="dim">Fragrance:</span> ${esc(b.fragrance_name||'—')} ${b.fragrance_manuf?'('+esc(b.fragrance_manuf)+')':''}</p>
-        ${(b.addins&&b.addins.length)?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Add-ins:</span> ${b.addins.map(a=>esc(a.name)+(a.type==='mica'?'':a.type==='additive'?' '+(a.amt||'')+(a.unit?(' '+a.unit):''):a.oz?' '+a.oz+'oz':'')).join(', ')}</p>`:''}
+        ${(b.addins&&b.addins.length)?`<div style="margin-top:10px"><span class="dim mono" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Add-ins</span>
+          <table style="width:100%;margin-top:4px">
+            ${b.addins.map(a=>{
+              const amt = a.type==='mica' ? '¼ tsp' : a.type==='additive' ? (a.amt||'')+(a.unit?' '+a.unit:'') : (a.oz?a.oz+' oz':'—');
+              const cost = a.cost?money(a.cost):'';
+              return `<tr><td class="mono" style="font-size:12px">${esc(a.name)}</td><td class="num mono" style="font-size:12px">${amt}</td><td class="num dim mono" style="font-size:12px">${cost}</td></tr>`;
+            }).join('')}
+          </table></div>`:''}
         ${ov?`<p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Swaps:</span></p><ul style="font-family:var(--mono);font-size:12px;margin-left:18px">${ov}</ul>`:''}
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Topping:</span> ${esc(b.topping||'—')}</p>
         <p class="mono" style="font-size:12px;margin-top:6px"><span class="dim">Appearance:</span> ${esc(b.appearance||'—')}</p>
