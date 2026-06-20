@@ -569,7 +569,7 @@ function computeFormula(recipe, mold, extraLines){
   oilPctSum=oilLines.reduce((s,l)=>s+l.pct,0);
   if(oilLines.length && Math.abs(oilPctSum-100)>0.1) warnings.push('Oils total '+(Math.round(oilPctSum*10)/10)+'% — should be 100%');
   oilLines.forEach(l=>{const g=l.pct/100*base;naohRaw+=g*num(l.ing.sap_naoh,0);const c=g*costPerG(l.ing);totalCost+=c;
-    rows.push({name:l.ing.name,cat:'oil',mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g',cost:c});});
+    rows.push({name:l.ing.name,cat:'oil',mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g / '+(g/28.3495).toFixed(2)+' oz',cost:c});});
   const sf=num(recipe.superfat,5);
   const lyeType=recipe.lye_type==='KOH'?'KOH':'NaOH';
   let lyeG=naohRaw*(1-sf/100); if(lyeType==='KOH') lyeG=lyeG*1.4025/0.90;
@@ -583,7 +583,7 @@ function computeFormula(recipe, mold, extraLines){
     if(l.mode==='mark'){rows.push({name:l.ing.name,cat:l.ing.category,mode:'mark',disp:'✓',g:0,cost:0});return;}
     if(l.mode==='tsp'||l.mode==='tbsp'){rows.push({name:l.ing.name,cat:l.ing.category,mode:l.mode,disp:l.amt+' '+(l.mode==='tsp'?'tsp':'Tbsp'),g:0,cost:0});return;}
     const g=l.pct/100*base;const c=g*costPerG(l.ing);totalCost+=c;
-    rows.push({name:l.ing.name,cat:l.ing.category,mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g',cost:c});
+    rows.push({name:l.ing.name,cat:l.ing.category,mode:'pct',pct:l.pct,g,disp:g.toFixed(1)+' g / '+(g/28.3495).toFixed(2)+' oz',cost:c});
   });
   const conc=(lyeG+waterG)>0?lyeG/(lyeG+waterG)*100:0;
   const bars=mold?num(mold.bars,10):10;
@@ -776,8 +776,8 @@ function readoutHTML(f,r,m,addin){
   return `<div class="readout">
     <div class="costline"><span class="k">Mold</span> <b>${esc(m.name)}</b> · ${m.total_oil_g} g oils · ${m.bars} bars</div>
     <div class="costline">
-      <span><span class="k">Lye (${f.lyeType}, ${f.sf}% SF)</span> <b>${f.lyeG.toFixed(1)} g</b></span>
-      <span><span class="k">Water</span> <b>${f.waterG.toFixed(1)} g</b></span>
+      <span><span class="k">Lye (${f.lyeType}, ${f.sf}% SF)</span> <b>${f.lyeG.toFixed(1)} g</b> <span class="dim" style="font-size:11px">(${(f.lyeG/28.3495).toFixed(2)} oz)</span></span>
+      <span><span class="k">Water</span> <b>${f.waterG.toFixed(1)} g</b> <span class="dim" style="font-size:11px">(${(f.waterG/28.3495).toFixed(2)} oz)</span></span>
       <span><span class="k">Conc</span> <b>${Math.round(f.conc)}%</b></span>
     </div>
     <div class="costline">
