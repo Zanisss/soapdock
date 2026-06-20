@@ -1306,13 +1306,99 @@ function blMakeRecipeObj(){
   };
 }
 
+// ── Quality solver ──
+// For each quality, "best" oil = the one in current formula that has
+// highest value for that quality. We nudge it up by 5% each iteration,
+// trim everything else proportionally, repeat until in range or 50 iters.
+function blSolveFor(qualKey){
+  if(!blLines.length){toast('Add oils first');return;}
+  const [,lo,hi]=Q_META[qualKey];
+  // Work on a deep copy
+  let lines=blLines.map(l=>({...l}));
+  const oilIds=new Set(lines.filter(l=>{const i=ingById(l.ingredient_id);return i&&i.category==='oil';}).map(l=>l.ingredient_id));
+  if(!oilIds.size){toast('No oils in formula');return;}
+
+  // Determine direction: do we need to go up or down?
+  function getScore(ls){
+    const ol=ls.map(l=>({ing:ingById(l.ingredient_id),pct:l.pct})).filter(l=>l.ing&&l.ing.category==='oil');
+    const sq=computeQualities(ol);
+    return sq.vals[qualKey]||0;
+  }
+  const startScore=getScore(lines);
+  const needUp=startScore<lo;
+  const needDown=startScore>hi;
+  if(!needUp&&!needDown){toast(Q_META[qualKey][0]+' is already in range!');return;}
+
+  // Pick best oil to nudge: highest quality value for needUp, lowest for needDown
+  function bestOil(ls,goUp){
+    let best=null,bestVal=goUp?-1:Infinity;
+    ls.forEach(l=>{
+      if(!oilIds.has(l.ingredient_id))return;
+      const ing=ingById(l.ingredient_id);
+      if(!ing||!ing.qualities)return;
+      const v=num(ing.qualities[qualKey]);
+      if(goUp&&v>bestVal){bestVal=v;best=l.ingredient_id;}
+      if(!goUp&&v<bestVal){bestVal=v;best=l.ingredient_id;}
+    });
+    return best;
+  }
+
+  // Rebalance: keep target oil's pct, shrink/grow others proportionally
+  function rebalance(ls,targetId,targetPct){
+    const others=ls.filter(l=>l.ingredient_id!==targetId);
+    const othersTotal=others.reduce((s,l)=>s+l.pct,0);
+    const remaining=100-targetPct;
+    return ls.map(l=>{
+      if(l.ingredient_id===targetId)return{...l,pct:Math.max(1,Math.min(80,targetPct))};
+      if(othersTotal===0)return{...l,pct:remaining/others.length};
+      return{...l,pct:Math.max(0.5,l.pct/othersTotal*remaining)};
+    });
+  }
+
+  const STEP=4, MAX_ITER=40, MIN_PCT=2, MAX_PCT=75;
+  let iter=0;
+  while(iter++<MAX_ITER){
+    const score=getScore(lines);
+    if(score>=lo&&score<=hi)break;
+    const tid=bestOil(lines,needUp);
+    if(!tid)break;
+    const cur=lines.find(l=>l.ingredient_id===tid);
+    if(!cur)break;
+    const newPct=needUp
+      ?Math.min(MAX_PCT,cur.pct+STEP)
+      :Math.max(MIN_PCT,cur.pct-STEP);
+    if(newPct===cur.pct)break; // stuck at limit
+    lines=rebalance(lines,tid,newPct);
+  }
+
+  // Round to 1dp and fix rounding error on first line
+  lines.forEach(l=>l.pct=Math.round(l.pct*10)/10);
+  const rt=lines.reduce((s,l)=>s+l.pct,0);
+  lines[0].pct=Math.round((lines[0].pct+(100-rt))*10)/10;
+
+  const finalScore=getScore(lines);
+  const [label2,lo2,hi2]=Q_META[qualKey];
+  if(finalScore>=lo2&&finalScore<=hi2){
+    blLines=lines;
+    toast(label2+' fixed → '+finalScore+' ✓');
+  } else {
+    // Partially improved — apply anyway with a note
+    blLines=lines;
+    toast(label2+': got to '+finalScore+' (best possible with these oils)');
+  }
+  renderBuilderLines();
+  renderBuilderReadout();
+  renderBuilderOilCards();
+}
+window.blSolveFor=blSolveFor;
+
 function renderBuilderQualities(){
   const oilLines = blLines.map(l=>({ing:ingById(l.ingredient_id),pct:l.pct})).filter(l=>l.ing&&l.ing.category==='oil');
   if(!oilLines.length){$('#blQualities').innerHTML='<div class="empty" style="padding:18px 0">Add oils to see quality scores.</div>';return;}
   const sq = computeQualities(oilLines);
   if(!sq.has){$('#blQualities').innerHTML='<div class="empty" style="padding:18px 0">No quality data for these oils.</div>';return;}
   const total = blLines.reduce((s,l)=>s+l.pct,0);
-  const locked = Math.abs(total-100)<0.1; // only show full color at exactly 100%
+  const locked = Math.abs(total-100)<0.1;
   const over = total>100.1;
   const under = total<99.9 && total>0;
   const bars = Q_KEYS.map(k=>{
@@ -1323,13 +1409,18 @@ function renderBuilderQualities(){
     const barW=Math.min(100,Math.round(val/max*100));
     const loP=Math.round(lo/max*100);
     const hiP=Math.round(hi/max*100);
-    // Colors: full when locked, dimmed when not
     const barColor = locked ? (ok?'var(--good)':'var(--warn)') : 'var(--dim)';
     const valColor = locked ? (ok?'var(--good)':'var(--warn)') : 'var(--dim)';
-    return `<div style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;margin-bottom:3px">
+    // Orange rows get a clickable fix button; iodine/ins are read-only (side effects of other choices)
+    const fixable = locked && !ok && k!=='iodine' && k!=='ins';
+    const rowStyle = fixable?'cursor:pointer':'';
+    const fixBtn = fixable
+      ? `<button onclick="blSolveFor('${k}')" style="font-family:var(--mono);font-size:9px;background:transparent;border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:1px 6px;cursor:pointer;margin-left:6px" title="Auto-adjust oils to fix ${label}">fix</button>`
+      : '';
+    return `<div style="margin-bottom:10px;${rowStyle}">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11px;margin-bottom:3px">
         <span style="color:var(--dim);text-transform:uppercase;letter-spacing:.5px">${label}</span>
-        <span style="color:${valColor};font-weight:600">${val} <span style="font-weight:400;color:var(--dim)">${lo}–${hi}</span></span>
+        <span style="display:flex;align-items:center;color:${valColor};font-weight:600">${val} <span style="font-weight:400;color:var(--dim);margin-left:4px">${lo}–${hi}</span>${fixBtn}</span>
       </div>
       <div style="background:var(--bg);border-radius:4px;height:8px;position:relative;overflow:visible">
         <div style="position:absolute;left:${loP}%;width:${hiP-loP}%;height:100%;background:var(--accent2);opacity:0.25;border-radius:4px"></div>
