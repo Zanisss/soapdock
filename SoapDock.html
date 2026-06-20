@@ -965,13 +965,36 @@ window.openBatch=id=>{const b=BAT.find(x=>x.id===id);if(!b)return;const m=MOLD.f
   </tr>`).join('');
   const oilsTotal=(c.oils||[]).reduce((s,o)=>s+num(o.g),0);
 
-  // Add-in rows
+  // Add-in rows — derive cost live from ING/purchases where possible
+  function liveAddinCost(a){
+    if(a.type==='additive'){
+      const ing=ING.find(i=>i.name.toLowerCase()===a.name.toLowerCase());
+      if(ing){
+        const c=ingCosting(ing);
+        if(c.n>0&&a.amt){
+          const amt=num(a.amt);
+          const unit=(a.unit||'').toLowerCase();
+          const toG=unit==='g'?1:unit==='oz'?28.3495:unit==='tsp'?4:unit==='tbsp'?12:1;
+          return amt*toG*c.buffered;
+        }
+      }
+    }
+    if(a.addin_id){
+      const ad=ADDIN.find(x=>x.id===a.addin_id);
+      if(ad&&num(ad.cost)>0){
+        if(a.type==='mica') return num(ad.cost);
+        if(a.oz) return num(a.oz)*num(ad.cost);
+      }
+    }
+    return num(a.cost)||0;
+  }
   const addinRows=(b.addins||[]).map(a=>{
     const amt=a.type==='mica'?'¼ tsp':a.type==='additive'?(a.amt||'')+(a.unit?' '+a.unit:''):(a.oz?a.oz+' oz':'—');
-    const cost=a.cost?`<span style="color:var(--good)">${money(a.cost)}</span>`:'';
-    return `<tr><td style="font-family:var(--mono)" style="font-size:14px">${esc(a.name)}</td><td class="num" style="font-family:var(--mono)" style="font-size:14px;color:var(--dim)">${amt}</td><td class="num" style="font-family:var(--mono)" style="font-size:14px">${cost}</td></tr>`;
+    const liveCost=liveAddinCost(a);
+    const cost=liveCost>0?`<span style="color:var(--good)">${money(liveCost)}</span>`:'';
+    return `<tr><td style="font-family:var(--mono);font-size:14px">${esc(a.name)}</td><td class="num" style="font-family:var(--mono);font-size:14px;color:var(--dim)">${amt}</td><td class="num" style="font-family:var(--mono);font-size:14px">${cost}</td></tr>`;
   }).join('');
-  const addinTotal=(b.addins||[]).reduce((s,a)=>s+num(a.cost),0);
+  const addinTotal=(b.addins||[]).reduce((s,a)=>s+liveAddinCost(a),0);
 
   // pH log
   const phTests=(b.ph_tests||[]).slice().sort((a,c)=>(a.date||'').localeCompare(c.date||''));
