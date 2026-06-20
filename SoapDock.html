@@ -318,9 +318,24 @@
           <div class="field"><label>Water disc. %</label><input id="blWaterDisc" type="number" value="0" min="0" max="30"></div>
         </div>
         <div class="field" style="margin-bottom:14px"><label>Mold (for sizing)</label><select id="blMold"></select></div>
+        <!-- Starter templates -->
+        <div style="margin-bottom:12px">
+          <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:6px">Start from a template</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="blTemplates">
+            <button class="btn ghost sm" onclick="blLoadTemplate('lather')">🫧 Lather Monster</button>
+            <button class="btn ghost sm" onclick="blLoadTemplate('soother')">🌿 Skin Soother</button>
+            <button class="btn ghost sm" onclick="blLoadTemplate('everyday')">⚖ Everyday Bar</button>
+            <button class="btn ghost sm" onclick="blLoadTemplate('hard')">🪨 Hard &amp; Long-Lasting</button>
+            <button class="btn ghost sm" onclick="blLoadTemplate('luxury')">✨ Luxury Creamy</button>
+          </div>
+        </div>
         <div id="blLines" style="display:flex;flex-direction:column;gap:6px;min-height:40px"></div>
-        <div class="dim mono" id="blEmpty" style="font-size:12px;padding:18px 0;text-align:center">← Click oils to add them to your formula</div>
-        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <div class="dim mono" id="blEmpty" style="font-size:12px;padding:18px 0;text-align:center">← Click oils above or pick a template to start</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn ghost sm" id="blBalance" style="display:none">⇌ Balance to 100%</button>
+          <span id="blBalanceHint" style="font-family:var(--mono);font-size:10px;color:var(--dim);display:none"></span>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" id="blSaveRecipe" style="flex:1">Save as Recipe</button>
           <button class="btn ghost sm" id="blClear">Clear</button>
         </div>
@@ -1211,8 +1226,19 @@ function blAddOil(id){
 function blUpdatePctSum(){
   const total = blLines.reduce((s,l)=>s+l.pct,0);
   const pctEl = $('#blPctSum');
+  const locked = Math.abs(total-100)<0.1;
+  const over = total>100.1;
   pctEl.textContent = Math.round(total*10)/10+'%';
-  pctEl.style.color = Math.abs(total-100)<0.1?'var(--good)':total>100?'var(--bad)':'var(--warn)';
+  pctEl.style.color = locked?'var(--good)':over?'var(--bad)':'var(--warn)';
+  // Show balance button when not at 100 and have oils
+  const showBalance = blLines.length>0 && !locked;
+  const balBtn = $('#blBalance');
+  const balHint = $('#blBalanceHint');
+  if(balBtn){
+    balBtn.style.display = showBalance?'inline-block':'none';
+    balHint.style.display = showBalance?'inline':'none';
+    if(showBalance) balHint.textContent = over?`${Math.round(total*10)/10}% — over by ${Math.round((total-100)*10)/10}%`:`${Math.round(total*10)/10}% — ${Math.round((100-total)*10)/10}% remaining`;
+  }
 }
 function renderBuilderLines(){
   $('#blEmpty').style.display = blLines.length?'none':'block';
@@ -1285,6 +1311,10 @@ function renderBuilderQualities(){
   if(!oilLines.length){$('#blQualities').innerHTML='<div class="empty" style="padding:18px 0">Add oils to see quality scores.</div>';return;}
   const sq = computeQualities(oilLines);
   if(!sq.has){$('#blQualities').innerHTML='<div class="empty" style="padding:18px 0">No quality data for these oils.</div>';return;}
+  const total = blLines.reduce((s,l)=>s+l.pct,0);
+  const locked = Math.abs(total-100)<0.1; // only show full color at exactly 100%
+  const over = total>100.1;
+  const under = total<99.9 && total>0;
   const bars = Q_KEYS.map(k=>{
     const[label,lo,hi]=Q_META[k];
     const val=sq.vals[k];
@@ -1293,21 +1323,27 @@ function renderBuilderQualities(){
     const barW=Math.min(100,Math.round(val/max*100));
     const loP=Math.round(lo/max*100);
     const hiP=Math.round(hi/max*100);
+    // Colors: full when locked, dimmed when not
+    const barColor = locked ? (ok?'var(--good)':'var(--warn)') : 'var(--dim)';
+    const valColor = locked ? (ok?'var(--good)':'var(--warn)') : 'var(--dim)';
     return `<div style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;margin-bottom:3px">
         <span style="color:var(--dim);text-transform:uppercase;letter-spacing:.5px">${label}</span>
-        <span style="color:${ok?'var(--good)':'var(--warn)'};font-weight:600">${val} <span style="font-weight:400;color:var(--dim)">${lo}–${hi}</span></span>
+        <span style="color:${valColor};font-weight:600">${val} <span style="font-weight:400;color:var(--dim)">${lo}–${hi}</span></span>
       </div>
       <div style="background:var(--bg);border-radius:4px;height:8px;position:relative;overflow:visible">
         <div style="position:absolute;left:${loP}%;width:${hiP-loP}%;height:100%;background:var(--accent2);opacity:0.25;border-radius:4px"></div>
         <div style="position:absolute;left:${loP}%;width:1px;height:100%;background:var(--dim);opacity:0.5"></div>
         <div style="position:absolute;left:${hiP}%;width:1px;height:100%;background:var(--dim);opacity:0.5"></div>
-        <div style="position:absolute;left:0;width:${barW}%;height:100%;background:${ok?'var(--good)':'var(--warn)'};border-radius:4px;transition:width .2s"></div>
+        <div style="position:absolute;left:0;width:${barW}%;height:100%;background:${barColor};border-radius:4px;transition:width .2s,background .2s"></div>
       </div>
     </div>`;
   }).join('');
   const miss = sq.missing.length?`<div class="dim mono" style="font-size:10px;margin-top:8px">no data: ${sq.missing.map(esc).join(', ')}</div>`:'';
-  $('#blQualities').innerHTML = bars + miss;
+  const hint = locked?''
+    : over?`<div style="font-family:var(--mono);font-size:10px;color:var(--warn);margin-bottom:8px">⚠ Oils at ${Math.round(total)}% — balance to 100% to lock scores</div>`
+    : under?`<div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:8px">Oils at ${Math.round(total)}% — scores preview only until you reach 100%</div>`:'';
+  $('#blQualities').innerHTML = hint + bars + miss;
 }
 
 function renderBuilderReadout(){
@@ -1326,6 +1362,96 @@ function renderBuilderReadout(){
     ${warns}
   </div>`;
 }
+
+// ── Auto-balance ──
+$('#blBalance').onclick=()=>{
+  if(!blLines.length) return;
+  const total = blLines.reduce((s,l)=>s+l.pct,0);
+  if(total===0){toast('Set at least one % first');return;}
+  blLines.forEach(l=>{ l.pct = Math.round(l.pct/total*1000)/10; });
+  // Fix rounding so we land exactly on 100
+  const newTotal = blLines.reduce((s,l)=>s+l.pct,0);
+  blLines[0].pct = Math.round((blLines[0].pct+(100-newTotal))*10)/10;
+  renderBuilderLines();
+  renderBuilderReadout();
+  renderBuilderOilCards();
+  toast('Balanced to 100%');
+};
+
+// ── Starter templates ──
+// Maps oil names to pct. Skips any oil not in the ING library.
+const BL_TEMPLATES={
+  lather:{
+    label:'Lather Monster',
+    desc:'Big fluffy lather driven by Coconut and Castor. Great for kitchen or hand soap.',
+    sf:5, lyeConc:33, waterDisc:0,
+    oils:[
+      ['Coconut Oil (76)',40],['Olive Oil',25],['Castor Oil',15],
+      ['Lard',10],['Sweet Almond Oil',10]
+    ]
+  },
+  soother:{
+    label:'Skin Soother',
+    desc:'Gentle, high-conditioning bar. Low cleansing, very moisturizing. Great for sensitive or dry skin.',
+    sf:7, lyeConc:33, waterDisc:0,
+    oils:[
+      ['Olive Oil',40],['Shea Butter',20],['Avocado Oil',20],
+      ['Coconut Oil (76)',15],['Castor Oil',5]
+    ]
+  },
+  everyday:{
+    label:'Everyday Bar',
+    desc:'Balanced all-rounder. Good lather, good conditioning, long-lasting.',
+    sf:5, lyeConc:33, waterDisc:0,
+    oils:[
+      ['Olive Oil',30],['Coconut Oil (76)',30],['Lard',25],
+      ['Castor Oil',5],['Shea Butter',10]
+    ]
+  },
+  hard:{
+    label:'Hard & Long-Lasting',
+    desc:'High hardness and INS, low iodine. Bar that lasts months. Less conditioning.',
+    sf:5, lyeConc:35, waterDisc:5,
+    oils:[
+      ['Coconut Oil (76)',30],['Lard',30],['Palm Oil',25],
+      ['Olive Oil',10],['Castor Oil',5]
+    ]
+  },
+  luxury:{
+    label:'Luxury Creamy',
+    desc:'Rich, creamy lather from Shea, Cocoa Butter, and Castor. Conditioning and silky.',
+    sf:6, lyeConc:33, waterDisc:0,
+    oils:[
+      ['Shea Butter',25],['Cocoa Butter',20],['Olive Oil',20],
+      ['Coconut Oil (76)',25],['Castor Oil',10]
+    ]
+  }
+};
+
+window.blLoadTemplate=function(key){
+  const tmpl=BL_TEMPLATES[key];if(!tmpl)return;
+  // Find matching oils in library (case-insensitive partial match)
+  const resolved=[];
+  tmpl.oils.forEach(([name,pct])=>{
+    const ing=ING.find(i=>i.category==='oil'&&i.name.toLowerCase()===name.toLowerCase());
+    if(ing) resolved.push({ingredient_id:ing.id,pct});
+  });
+  if(!resolved.length){toast('None of these oils are in your library yet');return;}
+  // Scale to 100% using only found oils
+  const foundTotal=resolved.reduce((s,l)=>s+l.pct,0);
+  resolved.forEach(l=>l.pct=Math.round(l.pct/foundTotal*1000)/10);
+  const rt=resolved.reduce((s,l)=>s+l.pct,0);
+  resolved[0].pct=Math.round((resolved[0].pct+(100-rt))*10)/10;
+  blLines=resolved;
+  $('#blSF').value=tmpl.sf;
+  $('#blLyeConc').value=tmpl.lyeConc;
+  $('#blWaterDisc').value=tmpl.waterDisc;
+  const skipped=tmpl.oils.length-resolved.length;
+  toast(tmpl.label+' loaded'+(skipped?` (${skipped} oil${skipped>1?'s':''} not in library, scaled)`:''));
+  renderBuilderLines();
+  renderBuilderReadout();
+  renderBuilderOilCards();
+};
 
 // Save as recipe flow
 $('#blSaveRecipe').onclick=()=>{
