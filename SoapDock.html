@@ -136,6 +136,7 @@
     <button data-v="make">Make a Batch</button>
     <button data-v="batches">Batch History</button>
     <button data-v="recipes">Recipes</button>
+    <button data-v="builder">Recipe Builder</button>
     <button data-v="molds">Molds</button>
     <button data-v="ingredients">On Hand</button>
     <button data-v="pricelist">Price List</button>
@@ -286,6 +287,70 @@
           <div id="reReadout"><div class="empty">Add oils to see lye, water &amp; cost.</div></div>
         </div>
       </div>
+    </div>
+  </div>
+
+
+  <!-- RECIPE BUILDER -->
+  <div class="view" id="v-builder">
+    <div class="row" style="align-items:flex-start">
+
+      <!-- LEFT: Oil Palette -->
+      <div class="card" style="flex:1.1;min-width:280px;max-width:360px">
+        <h2>Oil Palette <span class="dim mono" style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">click to add</span></h2>
+        <div class="field" style="margin-bottom:10px">
+          <input id="blFilter" placeholder="filter oils…" style="width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:8px 10px;border-radius:6px;font-size:12px;font-family:var(--mono)">
+        </div>
+        <div id="blOilCards" style="display:flex;flex-direction:column;gap:6px;max-height:68vh;overflow-y:auto;padding-right:4px"></div>
+      </div>
+
+      <!-- CENTER: Formula -->
+      <div class="card" style="flex:1.4;min-width:320px">
+        <h2>Formula
+          <span id="blPctSum" style="float:right;font-family:var(--mono);font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--dim)">0%</span>
+        </h2>
+        <div class="grid2" style="margin-bottom:14px">
+          <div class="field"><label>Superfat %</label><input id="blSF" type="number" step="0.5" value="5" min="0" max="20"></div>
+          <div class="field"><label>Lye type</label><select id="blLyeType"><option>NaOH</option><option>KOH</option></select></div>
+        </div>
+        <div class="grid2" style="margin-bottom:14px">
+          <div class="field"><label>Lye conc. %</label><input id="blLyeConc" type="number" value="33" min="20" max="50"></div>
+          <div class="field"><label>Water disc. %</label><input id="blWaterDisc" type="number" value="0" min="0" max="30"></div>
+        </div>
+        <div class="field" style="margin-bottom:14px"><label>Mold (for sizing)</label><select id="blMold"></select></div>
+        <div id="blLines" style="display:flex;flex-direction:column;gap:6px;min-height:40px"></div>
+        <div class="dim mono" id="blEmpty" style="font-size:12px;padding:18px 0;text-align:center">← Click oils to add them to your formula</div>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="blSaveRecipe" style="flex:1">Save as Recipe</button>
+          <button class="btn ghost sm" id="blClear">Clear</button>
+        </div>
+        <div class="field" style="margin-top:12px;display:none" id="blNameWrap">
+          <label>Recipe name</label>
+          <input id="blName" placeholder="My New Recipe">
+        </div>
+        <div class="field" style="display:none" id="blFromWrap">
+          <label>Recipe from / notes</label>
+          <input id="blFrom" placeholder="source or inspiration">
+        </div>
+        <div style="display:none" id="blSaveConfirmWrap">
+          <button class="btn" id="blSaveConfirm">✓ Save to Recipes</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Live Readout -->
+      <div style="flex:1.2;min-width:280px;display:flex;flex-direction:column;gap:14px">
+        <!-- Quality bars -->
+        <div class="card">
+          <h2>Bar Qualities</h2>
+          <div id="blQualities"><div class="empty" style="padding:18px 0">Add oils to see quality scores.</div></div>
+        </div>
+        <!-- Formula readout -->
+        <div class="card">
+          <h2>Lye &amp; Cost</h2>
+          <div id="blReadout"><div class="empty" style="padding:18px 0">Add oils to see calculations.</div></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -660,7 +725,7 @@ function ingConsumed(ing){let u=0;BAT.forEach(b=>{const c=b.computed;if(!c)retur
 function ingStock(ing){const purchased=ingPurchased(ing),consumed=ingConsumed(ing);return{purchased,consumed,onHand:purchased-consumed};}
 
 // ---- RENDER ALL ----
-function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderMolds();renderIngredients();renderPriceList();renderTrends();renderPricing();if(openIng)renderIngDetail();}
+function renderAll(){renderDash();renderMake();renderBatches();renderRecipes();renderBuilder();renderMolds();renderIngredients();renderPriceList();renderTrends();renderPricing();if(openIng)renderIngDetail();}
 
 // ---- ADD-INS (fragrances / EOs / micas) ----
 const ADDIN_TYPES=[['fragrance','Fragrances'],['eo','Essential Oils'],['mica','Micas']];
@@ -1065,6 +1130,163 @@ $('#reSave').onclick=async()=>{
   if(error){toast('Error: '+error.message);return;}
   toast('Recipe saved');$('#recipeBack').click();loadAll();
 };
+
+
+// ---- RECIPE BUILDER ----
+let blLines = []; // [{ingredient_id, pct}]
+
+function renderBuilderOilCards(){
+  const filter = ($('#blFilter').value||'').toLowerCase();
+  const oils = ING.filter(i=>i.category==='oil' && (!filter||i.name.toLowerCase().includes(filter)));
+  const inFormula = new Set(blLines.map(l=>l.ingredient_id));
+  $('#blOilCards').innerHTML = oils.length ? oils.map(ing=>{
+    const q = ing.qualities||{};
+    const added = inFormula.has(ing.id);
+    const bars = Q_KEYS.filter(k=>k!=='iodine'&&k!=='ins').map(k=>{
+      const[,lo,hi]=Q_META[k]; const v=num(q[k]);
+      const ok = v>=lo&&v<=hi;
+      return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-family:var(--mono);color:${ok?'var(--good)':'var(--dim)'}">
+        <span style="text-transform:capitalize">${k.slice(0,4)}</span><b>${v||'?'}</b></span>`;
+    }).join('<span style="color:var(--line);margin:0 2px">·</span>');
+    return `<div onclick="blAddOil('${ing.id}')" style="background:var(--panel2);border:1px solid ${added?'var(--accent)':'var(--line)'};border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--accent2)'" onmouseleave="this.style.borderColor='${added?'var(--accent)':'var(--line)'}'">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${added?'var(--accent)':'var(--txt)'}">${esc(ing.name)}</span>
+        ${added?'<span style="font-family:var(--mono);font-size:10px;color:var(--accent)">✓ in formula</span>':'<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">+ add</span>'}
+      </div>
+      ${(q.hardness||q.cleansing||q.conditioning)?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:6px">${bars}</div>`:'<div style="font-size:10px;font-family:var(--mono);color:var(--dim);margin-top:3px">no quality data</div>'}
+    </div>`;
+  }).join('') : '<div class="dim mono" style="font-size:12px;padding:12px 0">No oils match.</div>';
+}
+
+function blAddOil(id){
+  if(blLines.find(l=>l.ingredient_id===id)){toast('Already in formula — adjust % below');return;}
+  // Suggest a starting pct: spread remaining over new count
+  const remaining = Math.max(0, 100 - blLines.reduce((s,l)=>s+l.pct,0));
+  const startPct = Math.round(Math.min(remaining, 100/Math.max(blLines.length+1,1)));
+  blLines.push({ingredient_id:id, pct:startPct});
+  renderBuilderLines();
+  renderBuilderReadout();
+  renderBuilderOilCards();
+}
+
+function renderBuilderLines(){
+  $('#blEmpty').style.display = blLines.length?'none':'block';
+  const total = blLines.reduce((s,l)=>s+l.pct,0);
+  const pctEl = $('#blPctSum');
+  pctEl.textContent = Math.round(total)+'%';
+  pctEl.style.color = Math.abs(total-100)<0.1?'var(--good)':total>100?'var(--bad)':'var(--warn)';
+  $('#blLines').innerHTML = blLines.map((l,i)=>{
+    const ing = ingById(l.ingredient_id);
+    if(!ing) return '';
+    return `<div style="display:grid;grid-template-columns:1fr 90px 120px 28px;gap:8px;align-items:center">
+      <span style="font-family:var(--mono);font-size:12px;font-weight:500">${esc(ing.name)}</span>
+      <input type="number" min="0" max="100" step="0.5" value="${l.pct}" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:6px 8px;border-radius:6px;font-size:12px;font-family:var(--mono);text-align:right" oninput="blLines[${i}].pct=parseFloat(this.value)||0;renderBuilderLines();renderBuilderReadout();renderBuilderOilCards()">
+      <input type="range" min="0" max="100" step="0.5" value="${l.pct}" style="width:100%;accent-color:var(--accent)" oninput="blLines[${i}].pct=parseFloat(this.value)||0;this.previousElementSibling.value=blLines[${i}].pct;renderBuilderLines();renderBuilderReadout();renderBuilderOilCards()">
+      <button style="background:transparent;border:1px solid var(--line);color:var(--bad);border-radius:6px;padding:5px 0;font-family:var(--mono);cursor:pointer" onclick="blLines.splice(${i},1);renderBuilderLines();renderBuilderReadout();renderBuilderOilCards()">×</button>
+    </div>`;
+  }).join('');
+}
+
+function blMakeRecipeObj(){
+  const mold = MOLD.find(x=>x.id===$('#blMold').value)||MOLD[0];
+  return {
+    superfat:num($('#blSF').value,5),
+    lye_type:$('#blLyeType').value,
+    water_method:'conc',
+    lye_conc:num($('#blLyeConc').value,33),
+    water_disc:num($('#blWaterDisc').value,0),
+    water_pct:33,
+    ingredients:blLines.map(l=>({ingredient_id:l.ingredient_id,mode:'pct',pct:l.pct,amt:0}))
+  };
+}
+
+function renderBuilderQualities(){
+  const oilLines = blLines.map(l=>({ing:ingById(l.ingredient_id),pct:l.pct})).filter(l=>l.ing&&l.ing.category==='oil');
+  if(!oilLines.length){$('#blQualities').innerHTML='<div class="empty" style="padding:18px 0">Add oils to see quality scores.</div>';return;}
+  const sq = computeQualities(oilLines);
+  if(!sq.has){$('#blQualities').innerHTML='<div class="empty" style="padding:18px 0">No quality data for these oils.</div>';return;}
+  const bars = Q_KEYS.map(k=>{
+    const[label,lo,hi]=Q_META[k];
+    const val=sq.vals[k];
+    const ok=val>=lo&&val<=hi;
+    const max=k==='ins'?220:k==='iodine'?100:k==='conditioning'?90:80;
+    const barW=Math.min(100,Math.round(val/max*100));
+    const loP=Math.round(lo/max*100);
+    const hiP=Math.round(hi/max*100);
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;margin-bottom:3px">
+        <span style="color:var(--dim);text-transform:uppercase;letter-spacing:.5px">${label}</span>
+        <span style="color:${ok?'var(--good)':'var(--warn)'};font-weight:600">${val} <span style="font-weight:400;color:var(--dim)">${lo}–${hi}</span></span>
+      </div>
+      <div style="background:var(--bg);border-radius:4px;height:8px;position:relative;overflow:visible">
+        <div style="position:absolute;left:${loP}%;width:${hiP-loP}%;height:100%;background:var(--accent2);opacity:0.25;border-radius:4px"></div>
+        <div style="position:absolute;left:${loP}%;width:1px;height:100%;background:var(--dim);opacity:0.5"></div>
+        <div style="position:absolute;left:${hiP}%;width:1px;height:100%;background:var(--dim);opacity:0.5"></div>
+        <div style="position:absolute;left:0;width:${barW}%;height:100%;background:${ok?'var(--good)':'var(--warn)'};border-radius:4px;transition:width .2s"></div>
+      </div>
+    </div>`;
+  }).join('');
+  const miss = sq.missing.length?`<div class="dim mono" style="font-size:10px;margin-top:8px">no data: ${sq.missing.map(esc).join(', ')}</div>`:'';
+  $('#blQualities').innerHTML = bars + miss;
+}
+
+function renderBuilderReadout(){
+  const mold = MOLD.find(x=>x.id===$('#blMold').value)||MOLD[0];
+  renderBuilderQualities();
+  if(!blLines.length||!mold){$('#blReadout').innerHTML='<div class="empty" style="padding:18px 0">Add oils to see calculations.</div>';return;}
+  const f = computeFormula(blMakeRecipeObj(), mold, []);
+  const bars = f.bars||1;
+  const warns = f.warnings.map(w=>`<div style="color:var(--warn);font-size:11px;font-family:var(--mono);margin-top:6px">⚠ ${esc(w)}</div>`).join('');
+  $('#blReadout').innerHTML = `<div style="font-family:var(--mono);font-size:12px">
+    <div class="costline"><span class="k">Oils</span><b>${f.base.toFixed(0)} g</b><span class="dim">${(f.base/28.3495).toFixed(2)} oz</span></div>
+    <div class="costline"><span class="k">Lye (${f.lyeType}, ${f.sf}% SF)</span><b>${f.lyeG.toFixed(1)} g</b><span class="dim">${(f.lyeG/28.3495).toFixed(2)} oz</span></div>
+    <div class="costline"><span class="k">Water</span><b>${f.waterG.toFixed(1)} g</b><span class="dim">${(f.waterG/28.3495).toFixed(2)} oz</span></div>
+    <div class="costline"><span class="k">Lye conc</span><b>${Math.round(f.conc)}%</b></div>
+    <div class="costline" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)"><span class="k">Batch cost</span><b>${money(f.totalCost)}</b><span class="k">/ bar</span><span style="color:var(--good)">${money(f.costPerBar)}</span></div>
+    ${warns}
+  </div>`;
+}
+
+// Save as recipe flow
+$('#blSaveRecipe').onclick=()=>{
+  if(!blLines.length){toast('Add some oils first');return;}
+  const wrap=$('#blNameWrap'),fromWrap=$('#blFromWrap'),confirmWrap=$('#blSaveConfirmWrap');
+  wrap.style.display='block';fromWrap.style.display='block';confirmWrap.style.display='block';
+  $('#blSaveRecipe').style.display='none';
+  $('#blName').focus();
+};
+$('#blSaveConfirm').onclick=async()=>{
+  const name=$('#blName').value.trim();if(!name){toast('Recipe name required');return;}
+  const mold=MOLD.find(x=>x.id===$('#blMold').value)||MOLD[0];
+  const rec={name,recipe_from:$('#blFrom').value||null,default_mold_id:mold?mold.id:null,
+    superfat:num($('#blSF').value,5),lye_type:$('#blLyeType').value,water_method:'conc',
+    lye_conc:num($('#blLyeConc').value,33),water_disc:num($('#blWaterDisc').value,0),water_pct:33,
+    ingredients:blLines.map(l=>({ingredient_id:l.ingredient_id,mode:'pct',pct:l.pct,amt:0})),
+    source:'builder',updated_at:new Date().toISOString()};
+  const{error}=await sb.from('recipes').insert(rec);
+  if(error){toast('Error: '+error.message);return;}
+  toast('Recipe saved! ✓');loadAll();
+  // reset save UI
+  $('#blSaveRecipe').style.display='block';
+  $('#blNameWrap').style.display='none';$('#blFromWrap').style.display='none';$('#blSaveConfirmWrap').style.display='none';
+  $('#blName').value='';$('#blFrom').value='';
+};
+$('#blClear').onclick=()=>{blLines=[];renderBuilderLines();renderBuilderReadout();renderBuilderOilCards();};
+$('#blFilter').oninput=renderBuilderOilCards;
+$('#blSF').oninput=$('#blLyeConc').oninput=$('#blWaterDisc').oninput=$('#blLyeType').onchange=$('#blMold').onchange=()=>renderBuilderReadout();
+window.blAddOil=blAddOil;
+
+function renderBuilder(){
+  // preserve current mold selection
+  const curMold = $('#blMold').value;
+  fillMoldSelect($('#blMold'), curMold||( MOLD[0]&&MOLD[0].id));
+  renderBuilderOilCards();
+  renderBuilderReadout();
+}
+function initBuilder(){
+  fillMoldSelect($('#blMold'), MOLD[0]&&MOLD[0].id);
+  renderBuilderOilCards();
+}
 
 // ---- MOLDS ----
 let editMold=null;
