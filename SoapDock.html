@@ -441,7 +441,7 @@
       </div>
     </div>
 
-  <div id="v-addins" style="margin-top:20px">
+  <div class="view" id="v-addins" style="margin-top:20px">
     <div class="row">
       <div class="card" style="flex:1;min-width:300px">
         <h2 id="adFormTitle">New add-in</h2>
@@ -471,6 +471,7 @@
       <div class="card" style="flex:0 0 300px;min-width:260px">
         <h2 id="plFormTitle">New Price List Entry</h2>
         <div class="field"><label>Name</label><input id="plName" placeholder="e.g. Olive Oil, Pomace"></div>
+        <div class="field"><label>Linked ingredient <span class="dim" style="font-weight:400">(optional — enables "log purchase")</span></label><select id="plIng"><option value="">— none —</option></select></div>
         <div class="field"><label>Supplier</label><input id="plSupplier" placeholder="e.g. Soaper's Choice"></div>
         <div class="field"><label>Category</label>
           <select id="plCat">
@@ -1832,6 +1833,12 @@ window.delPurch=async id=>{if(!confirm('Delete this purchase?'))return;await sb.
 
 // ---- PRICING ----
 function renderPriceList(){
+  // refresh linked-ingredient picker
+  const _plIng = $('#plIng'); if(_plIng) {
+    const cur = _plIng.value;
+    _plIng.innerHTML = '<option value="">— none —</option>' + ING.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join('');
+    if(cur) _plIng.value = cur;
+  }
   const searchQ=($('#plSearch').value||'').toLowerCase().trim();
 
   // Build combined item list from three sources:
@@ -1981,7 +1988,7 @@ $('#plSave').onclick=async()=>{
     name:$('#plName').value.trim(),supplier:$('#plSupplier').value.trim(),
     category:$('#plCat').value,sap_naoh:num($('#plSap').value)||null,
     cost_per_g:costPerG,pkg_size:pkgSize||null,pkg_unit:pkgUnit,
-    product_url:$('#plUrl').value.trim()||null,notes:$('#plNotes').value.trim()
+    product_url:$('#plUrl').value.trim()||null,notes:$('#plNotes').value.trim(),ingredient_id:$('#plIng').value||null
   };
   if(!rec.name){toast('Name required');return;}
   let error;
@@ -1993,7 +2000,7 @@ $('#plSave').onclick=async()=>{
 
 function clearPlForm(){
   editPl=null;
-  ['plName','plSupplier','plSap','plPkgSize','plPrice','plNotes','plUrl'].forEach(id=>$('#'+id).value='');
+  ['plName','plSupplier','plSap','plPkgSize','plPrice','plNotes','plUrl'].forEach(id=>$('#'+id).value='');$('#plIng').value='';
   $('#plCat').value='oil';$('#plPkgUnit').value='lb';
   $('#plFormTitle').textContent='New Price List Entry';$('#plClear').style.display='none';
 }
@@ -2005,7 +2012,7 @@ window.editPlFn=id=>{
   $('#plName').value=p.name||'';$('#plSupplier').value=p.supplier||'';
   $('#plCat').value=p.category||'oil';$('#plSap').value=p.sap_naoh||'';
   $('#plPkgSize').value=p.pkg_size||'';$('#plPkgUnit').value=p.pkg_unit||'lb';
-  $('#plNotes').value=p.notes||'';$('#plUrl').value=p.product_url||'';
+  $('#plNotes').value=p.notes||'';$('#plUrl').value=p.product_url||'';$('#plIng').value=p.ingredient_id||'';
   // reverse-calc price from cost_per_g
   const gPerUnit={lb:453.592,kg:1000,g:1,oz:28.3495};
   const g=(p.pkg_size||0)*(gPerUnit[p.pkg_unit||'lb']||1);
@@ -2021,17 +2028,41 @@ window.delPl=async id=>{
 
 window.logPurchaseFromPL=id=>{
   const p=PL.find(x=>x.id===id);if(!p)return;
-  // Switch to On Hand tab, pre-fill the ingredient name if it matches, open purchase form
+  // Resolve target ingredient: linked id first, then exact name match (case-insensitive)
+  let ing=p.ingredient_id?ingById(p.ingredient_id):null;
+  if(!ing&&p.name) ing=ING.find(i=>i.name.toLowerCase()===p.name.toLowerCase());
+  // Switch to On Hand tab
   $$('nav button').forEach(x=>x.classList.remove('on'));
   document.querySelector('[data-v="ingredients"]').classList.add('on');
   $$('.view').forEach(v=>v.classList.remove('on'));$('#v-ingredients').classList.add('on');
-  // Pre-fill new ingredient form with price list data
-  $('#iName').value=p.name||'';
-  $('#iCat').value=p.category||'oil';
-  $('#iSap').value=p.sap_naoh||'';
-  // Scroll to form
-  document.querySelector('#v-ingredients .card').scrollIntoView({behavior:'smooth'});
-  toast('Switched to On Hand — check if ingredient exists, then log a purchase');
+  if(ing){
+    // Open the ingredient detail and prefill the purchase form from this PL row
+    openIngredient(ing.id);
+    setTimeout(()=>{
+      $('#pVendor').value=p.supplier||'';
+      $('#pDate').value=new Date().toISOString().slice(0,10);
+      $('#pSize').value=p.pkg_size||'';
+      // Match the purchase form's unit dropdown (gallon/fl_oz/ml/l/lb/oz/kg/g/each) to the PL unit
+      const pu=$('#pUnit');
+      const want=(p.pkg_unit||'').toLowerCase();
+      const opts=[...pu.options].map(o=>o.value);
+      pu.value=opts.includes(want)?want:'lb';
+      // Reverse-calc the package price from cost_per_g
+      const gPerUnit={lb:453.592,kg:1000,g:1,oz:28.3495};
+      const g=(p.pkg_size||0)*(gPerUnit[p.pkg_unit]||1);
+      $('#pPrice').value=g&&p.cost_per_g?(p.cost_per_g*g).toFixed(2):'';
+      // Bring the purchase form into view
+      document.querySelector('#ingDetailWrap .card').scrollIntoView({behavior:'smooth'});
+      toast('Purchase prefilled — review and Add purchase');
+    },50);
+  } else {
+    // No matching ingredient — pre-fill the new-ingredient form so they can add it first
+    $('#iName').value=p.name||'';
+    $('#iCat').value=p.category||'oil';
+    $('#iSap').value=p.sap_naoh||'';
+    document.querySelector('#v-ingredients .card').scrollIntoView({behavior:'smooth'});
+    toast('No matching ingredient — add it here, then click "log purchase" again');
+  }
 };
 
 function renderTrends(){
