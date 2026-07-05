@@ -111,6 +111,36 @@
   .cat-body.open{display:block}
   .cat-body table{width:100%}
   .cat-body th{top:0;position:static}
+  /* ---- price report tab ---- */
+  #prDrop{border:2px dashed var(--line);border-radius:10px;padding:34px 20px;text-align:center;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:12px;margin-bottom:16px}
+  #prDrop b{display:block;font-size:13px;color:var(--txt);font-weight:500;margin-bottom:4px}
+  #prDrop.over{border-color:var(--accent);color:var(--accent);background:rgba(58,214,196,.06)}
+  #prDrop.mini{padding:10px}
+  #prDrop.mini b{display:inline;margin:0}
+  #prDrop.mini span{margin-left:8px}
+  .prMeta{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap}
+  .prMeta b{color:var(--txt);font-weight:500}
+  .prGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+  .prCard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .prCard h4{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px}
+  .prCard h4 small{font-size:10px;color:var(--dim);font-weight:400;margin-left:4px}
+  .prCard .n{font-family:var(--mono);font-size:24px;font-weight:600}
+  .prCard .n small{font-size:12px;color:var(--dim);font-weight:400}
+  .prCard .sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7}
+  .prUp{color:var(--bad)} .prDown{color:var(--good)} .prWarnTxt{color:var(--warn)}
+  #prWarnBox{border-color:var(--warn)}
+  .prList{list-style:none}
+  .prList li{font-family:var(--mono);font-size:12px;padding:4px 0;line-height:1.5;word-break:break-word}
+  .prList li .src{color:var(--dim)}
+  .prList li.w::before{content:"\26A0  ";color:var(--warn)}
+  .prList li.r::before{content:"\25C9  ";color:var(--accent)}
+  .prControls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .prControls select,.prControls input{background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px}
+  .prControls input{flex:1;min-width:160px}
+  #prTable th{cursor:pointer;user-select:none}
+  #prTable th:hover{color:var(--accent)}
+  #prTable th .arr{color:var(--accent)}
+  .prCount{font-family:var(--mono);font-size:11px;color:var(--dim);margin:6px 0}
 </style>
 </head>
 <body>
@@ -141,6 +171,7 @@
     <button data-v="ingredients">On Hand</button>
     <button data-v="pricelist">Price List</button>
     <button data-v="trends">Price Trends</button>
+    <button data-v="report">Price Report</button>
     <button data-v="pricing">Pricing</button>
   </nav>
 
@@ -523,6 +554,44 @@
       <div id="trCards"></div>
       <div class="empty" id="trEmpty">No price changes recorded yet \u2014 the weekly updater logs changes here as vendors move prices. Check back after a few weekly runs.</div>
     </div>
+  </div>
+
+  <!-- PRICE REPORT -->
+  <div class="view" id="v-report">
+    <div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <button class="btn" id="prRunBtn">Run price update now</button>
+      <span class="mono dim" id="prStatus" style="font-size:12px">checking last run…</span>
+    </div>
+    <div id="prDrop"><b>Drop a weekly changelog here</b><span>or click to browse — G:\Scrapper\Logs\changelog-*.txt</span><input type="file" id="prFile" accept=".txt" style="display:none"></div>
+    <div id="prReport" style="display:none">
+      <div class="prMeta" id="prMeta"></div>
+      <div class="prGrid" id="prCards"></div>
+      <div class="card" id="prBars" style="margin-bottom:16px"></div>
+      <div class="card" id="prWarnBox" style="display:none;margin-bottom:16px"><h2>Needs attention</h2><ul class="prList" id="prWarnList"></ul></div>
+      <div class="card" id="prRevBox" style="display:none;margin-bottom:16px"><h2>Flagged for manual review (watch mode)</h2><ul class="prList" id="prRevList"></ul></div>
+      <div class="card">
+        <h2>Movers</h2>
+        <div class="prControls">
+          <select id="prSup"><option value="">All suppliers</option></select>
+          <select id="prDir"><option value="">Up + down</option><option value="up">Up only</option><option value="down">Down only</option></select>
+          <select id="prTop"><option value="25">Top 25</option><option value="50">Top 50</option><option value="100">Top 100</option><option value="0">Show all</option></select>
+          <input type="text" id="prSearch" placeholder="search name…">
+        </div>
+        <div class="prCount" id="prCount"></div>
+        <table id="prTable">
+          <thead><tr>
+            <th data-k="name">Item</th>
+            <th data-k="oldP" class="num">Was</th>
+            <th data-k="newP" class="num">Now</th>
+            <th data-k="delta" class="num">Δ $</th>
+            <th data-k="pct" class="num">Δ %</th>
+            <th data-k="variant">Size</th>
+          </tr></thead>
+          <tbody id="prBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="empty" id="prEmpty" style="display:none">Couldn't find any supplier sections in that file — is it a changelog from update-prices.js?</div>
   </div>
 
   <!-- PRICING -->
@@ -2172,6 +2241,239 @@ function renderPrice(){
 }
 
 $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');$$('.view').forEach(v=>v.classList.remove('on'));$('#v-'+b.dataset.v).classList.add('on');});
+
+/* =================== PRICE REPORT TAB =================== */
+(function(){
+'use strict';
+var PR_KEY='soapdock:pricereport:last';
+var prCurrent=null, prSortK='pct', prSortDesc=true;
+
+function prParse(text){
+  var lines=text.split(/\r?\n/);
+  var report={runDate:null,mode:null,total:null,suppliers:[],warnings:[],reviews:[]};
+  var cur=null,inSummary=false;
+  var mHead=text.match(/Price Updater[^\n]*—\s*([\d\-T:.Z]+)/);
+  if(mHead) report.runDate=mHead[1];
+  var mRun=text.match(/^Run:\s*(.+)$/m);
+  if(mRun) report.runDate=mRun[1].trim();
+  if(/LIVE MODE|Mode:\s*LIVE/i.test(text)) report.mode='LIVE';
+  else if(/DRY RUN|Mode:\s*DRY/i.test(text)) report.mode='DRY RUN';
+  var mTot=text.match(/Total changes:\s*(\d+)/);
+  if(mTot) report.total=parseInt(mTot[1],10);
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i];
+    if(/^=+$/.test(line.trim())) continue;
+    if(/^SUMMARY OF CHANGES/.test(line.trim())){inSummary=true;cur=null;continue;}
+    if(inSummary){
+      var rv=line.match(/^\[REVIEW\]\s*(.+?)\s*\|\s*(.+?):\s*\$?([\d.]+)\s*→\s*\$?([\d.]+)/);
+      if(rv) prAddReview(report,rv[1],rv[2],parseFloat(rv[3]),parseFloat(rv[4]));
+      continue;
+    }
+    var mSup=line.match(/^(\S.*?)\s+\((AUTO|WATCH ONLY)\s*—[^)]*\)\s*$/);
+    if(mSup){
+      cur={name:mSup[1].trim(),mode:mSup[2]==='AUTO'?'auto':'watch',rows:null,scraped:null,matched:null,notFound:null,declared:null,changes:[],warnings:[]};
+      report.suppliers.push(cur);continue;
+    }
+    if(!cur) continue;
+    var t=line.trim(),m;
+    if((m=t.match(/^(\d+)\s+rows in Supabase/))) cur.rows=+m[1];
+    else if((m=t.match(/^(\d+)\s+live products scraped/))) cur.scraped=+m[1];
+    else if((m=t.match(/^(\d+)\s+matched exactly,\s*(\d+)\s+not found live/))){cur.matched=+m[1];cur.notFound=+m[2];}
+    else if((m=t.match(/^(\d+)\s+(?:price|catalog price)\s+changes/))) cur.declared=+m[1];
+    else if(/^WARNING:/.test(t)){var w1=t.replace(/^WARNING:\s*/,'');cur.warnings.push(w1);report.warnings.push({sup:cur.name,msg:w1});}
+    else if(/failed|permission denied|error/i.test(t)&&!/^[↑↓]/.test(t)){cur.warnings.push(t);report.warnings.push({sup:cur.name,msg:t});}
+    else if((m=t.match(/^([↑↓])\s+(.+?):\s+\$?([\d.]+)\s+→\s+\$?([\d.]+)\s*(?:\((.*?)\))?\s*$/))){
+      var oldP=parseFloat(m[3]),newP=parseFloat(m[4]),variant=m[5]||'';
+      if(/REVIEW/i.test(variant)||cur.mode==='watch'){prAddReview(report,cur.name,m[2],oldP,newP);}
+      else cur.changes.push({name:m[2],oldP:oldP,newP:newP,variant:variant,delta:newP-oldP,pct:oldP?((newP-oldP)/oldP*100):0,sup:cur.name});
+    }
+  }
+  return report;
+}
+function prAddReview(report,sup,name,oldP,newP){
+  for(var i=0;i<report.reviews.length;i++){var r=report.reviews[i];if(r.sup===sup&&r.name===name&&r.oldP===oldP&&r.newP===newP)return;}
+  report.reviews.push({sup:sup,name:name,oldP:oldP,newP:newP});
+}
+function prPct(n){return (n>0?'+':'')+n.toFixed(1)+'%';}
+function pr$(n){return '$'+n.toFixed(2);}
+
+function prRender(rep){
+  prCurrent=rep;
+  $('#prReport').style.display='';$('#prEmpty').style.display='none';
+  var drop=$('#prDrop');drop.classList.add('mini');
+  drop.querySelector('b').textContent='Load a different changelog';
+  drop.querySelector('span').textContent='(drop or click)';
+  var all=[];rep.suppliers.forEach(function(s){all=all.concat(s.changes);});
+  var ups=all.filter(function(c){return c.delta>0;}).length,downs=all.length-ups;
+  var d=rep.runDate?new Date(rep.runDate):null;
+  var dateStr=(d&&!isNaN(d))?d.toLocaleString():(rep.runDate||'unknown');
+  $('#prMeta').innerHTML='run <b>'+esc(dateStr)+'</b>'
+    +' · mode <b style="color:var(--'+(rep.mode==='LIVE'?'bad':'warn')+')">'+esc(rep.mode||'?')+'</b>'
+    +' · changes <b>'+(rep.total!=null?rep.total:all.length)+'</b>'
+    +' · <b class="prUp">'+ups+' up</b> / <b class="prDown">'+downs+' down</b>'
+    +(rep.reviews.length?' · <b style="color:var(--accent)">'+rep.reviews.length+' to review</b>':'')
+    +(rep.warnings.length?' · <b class="prWarnTxt">'+rep.warnings.length+' warnings</b>':'');
+  var cards='';
+  rep.suppliers.forEach(function(s){
+    var n=s.changes.length;
+    var u=s.changes.filter(function(c){return c.delta>0;}).length;
+    var avg=n?s.changes.reduce(function(a,c){return a+c.pct;},0)/n:0;
+    var maxC=null;s.changes.forEach(function(c){if(!maxC||Math.abs(c.pct)>Math.abs(maxC.pct))maxC=c;});
+    var sub='';
+    if(s.mode==='watch') sub='watch only — flags, no writes<br>'+(s.declared||0)+' flagged for review';
+    else{
+      sub='<span class="prUp">↑'+u+'</span> <span class="prDown">↓'+(n-u)+'</span>'+(n?' · avg <b>'+prPct(avg)+'</b>':'')
+        +(maxC?'<br>max '+prPct(maxC.pct):'')
+        +(s.notFound?'<br><span class="'+(s.notFound>50?'prWarnTxt':'')+'">'+s.notFound+' not found live</span>':'');
+    }
+    if(s.warnings.length) sub+='<br><span class="prWarnTxt">⚠ '+s.warnings.length+' warning'+(s.warnings.length>1?'s':'')+'</span>';
+    cards+='<div class="prCard"><h4>'+esc(s.name)+'<small>'+(s.mode==='watch'?'WATCH':'AUTO')+'</small></h4>'
+      +'<div class="n">'+(s.mode==='watch'?(s.declared||0):n)+'<small> changes</small></div>'
+      +'<div class="sub">'+sub+'</div></div>';
+  });
+  $('#prCards').innerHTML=cards;
+  var auto=rep.suppliers.filter(function(s){return s.mode==='auto'&&s.changes.length;});
+  var barsEl=$('#prBars');
+  if(auto.length){
+    var maxAvg=0;
+    var rows=auto.map(function(s){var avg=s.changes.reduce(function(a,c){return a+c.pct;},0)/s.changes.length;if(Math.abs(avg)>maxAvg)maxAvg=Math.abs(avg);return {name:s.name,avg:avg};});
+    var W=900,rowH=30,labW=220,H=rows.length*rowH+8;
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Average price change by supplier">';
+    rows.forEach(function(r,i){
+      var y=i*rowH+6;
+      var w=maxAvg?Math.max(2,Math.abs(r.avg)/maxAvg*(W-labW-120)):2;
+      var col=r.avg>=0?'var(--bad)':'var(--good)';
+      svg+='<text x="0" y="'+(y+14)+'" fill="var(--dim)" font-family="IBM Plex Mono,monospace" font-size="12">'+esc(r.name)+'</text>'
+        +'<rect x="'+labW+'" y="'+y+'" width="'+w+'" height="18" rx="3" fill="'+col+'" opacity="0.75"/>'
+        +'<text x="'+(labW+w+8)+'" y="'+(y+14)+'" fill="var(--txt)" font-family="IBM Plex Mono,monospace" font-size="12">'+prPct(r.avg)+' avg</text>';
+    });
+    svg+='</svg>';
+    barsEl.innerHTML='<h2>Average change by supplier</h2>'+svg;
+    barsEl.style.display='';
+  } else barsEl.style.display='none';
+  if(rep.warnings.length){
+    $('#prWarnBox').style.display='';
+    $('#prWarnList').innerHTML=rep.warnings.map(function(w){return '<li class="w"><span class="src">'+esc(w.sup)+' — </span>'+esc(w.msg)+'</li>';}).join('');
+  } else $('#prWarnBox').style.display='none';
+  if(rep.reviews.length){
+    $('#prRevBox').style.display='';
+    $('#prRevList').innerHTML=rep.reviews.map(function(r){
+      var pct=r.oldP?((r.newP-r.oldP)/r.oldP*100):0;
+      return '<li class="r"><span class="src">'+esc(r.sup)+' — </span>'+esc(r.name)+': '+pr$(r.oldP)+' → '+pr$(r.newP)+' ('+prPct(pct)+') — check on site before updating';
+    }).join('');
+  } else $('#prRevBox').style.display='none';
+  $('#prSup').innerHTML='<option value="">All suppliers</option>'+rep.suppliers.filter(function(s){return s.changes.length;}).map(function(s){return '<option>'+esc(s.name)+'</option>';}).join('');
+  prTable();
+}
+
+function prTable(){
+  if(!prCurrent) return;
+  var sup=$('#prSup').value,dir=$('#prDir').value,top=parseInt($('#prTop').value,10),q=$('#prSearch').value.trim().toLowerCase();
+  var rows=[];prCurrent.suppliers.forEach(function(s){rows=rows.concat(s.changes);});
+  if(sup) rows=rows.filter(function(c){return c.sup===sup;});
+  if(dir==='up') rows=rows.filter(function(c){return c.delta>0;});
+  if(dir==='down') rows=rows.filter(function(c){return c.delta<0;});
+  if(q){var terms=q.split(/\s+/);rows=rows.filter(function(c){var hay=(c.name+' '+c.sup).toLowerCase();return terms.every(function(t){return hay.indexOf(t)>=0;});});}
+  rows.sort(function(a,b){
+    var av=a[prSortK],bv=b[prSortK];
+    if(prSortK==='name'||prSortK==='variant') return prSortDesc?String(bv).localeCompare(av):String(av).localeCompare(bv);
+    if(prSortK==='pct'||prSortK==='delta'){av=Math.abs(av);bv=Math.abs(bv);}
+    return prSortDesc?bv-av:av-bv;
+  });
+  var total=rows.length;
+  if(top>0) rows=rows.slice(0,top);
+  $('#prCount').textContent='showing '+rows.length+' of '+total+' changes'+(sup?' · '+sup:'');
+  $('#prBody').innerHTML=rows.map(function(c){
+    var cls=c.delta>0?'prUp':'prDown';
+    return '<tr><td>'+esc(c.name)+' <span class="dim" style="font-size:11px">'+esc(c.sup)+'</span></td>'
+      +'<td class="num">'+pr$(c.oldP)+'</td>'
+      +'<td class="num '+cls+'">'+pr$(c.newP)+'</td>'
+      +'<td class="num '+cls+'">'+(c.delta>0?'+':'')+c.delta.toFixed(2)+'</td>'
+      +'<td class="num '+cls+'">'+prPct(c.pct)+'</td>'
+      +'<td class="mono">'+esc(c.variant)+'</td></tr>';
+  }).join('')||'<tr><td colspan="6" class="empty">no changes match</td></tr>';
+  $$('#prTable th').forEach(function(th){
+    var k=th.dataset.k;
+    th.innerHTML=th.textContent.replace(/\s[▲▼]$/,'')+(k===prSortK?(' <span class="arr">'+(prSortDesc?'▼':'▲')+'</span>'):'');
+  });
+}
+
+['prSup','prDir','prTop'].forEach(function(id){$('#'+id).addEventListener('change',prTable);});
+$('#prSearch').addEventListener('input',prTable);
+$('#prTable thead').addEventListener('click',function(e){
+  var th=e.target.closest('th');if(!th||!th.dataset.k)return;
+  if(prSortK===th.dataset.k) prSortDesc=!prSortDesc; else {prSortK=th.dataset.k;prSortDesc=true;}
+  prTable();
+});
+
+function prLoad(text){
+  var rep=prParse(text);
+  if(!rep.suppliers.length){$('#prEmpty').style.display='';$('#prReport').style.display='none';return;}
+  try{localStorage.setItem(PR_KEY,text);}catch(e){}
+  prRender(rep);
+}
+var prDrop=$('#prDrop'),prFile=$('#prFile');
+prDrop.addEventListener('click',function(){prFile.click();});
+prFile.addEventListener('change',function(){
+  if(!prFile.files.length)return;
+  var r=new FileReader();r.onload=function(){prLoad(r.result);};r.readAsText(prFile.files[0]);prFile.value='';
+});
+['dragover','dragenter'].forEach(function(ev){prDrop.addEventListener(ev,function(e){e.preventDefault();prDrop.classList.add('over');});});
+['dragleave','drop'].forEach(function(ev){prDrop.addEventListener(ev,function(e){e.preventDefault();prDrop.classList.remove('over');});});
+prDrop.addEventListener('drop',function(e){
+  var f=e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;
+  var r=new FileReader();r.onload=function(){prLoad(r.result);};r.readAsText(f);
+});
+try{var prLast=localStorage.getItem(PR_KEY);if(prLast)prLoad(prLast);}catch(e){}
+
+/* ---- Supabase-backed runs: auto-load latest, run button, live status ---- */
+var prLoadedRunId=null, prPollTimer=null;
+
+function prFmtT(iso){var d=new Date(iso);return isNaN(d)?'':d.toLocaleString();}
+function prSetStatus(run){
+  var el=$('#prStatus'),btn=$('#prRunBtn');
+  if(!run){el.textContent='no runs logged yet — drop a changelog below, or hit Run';btn.disabled=false;return;}
+  if(run.status==='requested'){el.innerHTML='<span style="color:var(--warn)">queued</span> — waiting for the PC watcher to pick it up… (requested '+esc(prFmtT(run.requested_at))+')';btn.disabled=true;}
+  else if(run.status==='running'){el.innerHTML='<span style="color:var(--warn)">running…</span> started '+esc(prFmtT(run.started_at));btn.disabled=true;}
+  else if(run.status==='error'){el.innerHTML='<span style="color:var(--bad)">last run failed</span> '+esc(prFmtT(run.finished_at||run.requested_at))+' — '+esc(run.error||'unknown error');btn.disabled=false;}
+  else {el.textContent='last run: '+prFmtT(run.finished_at||run.requested_at)+' · '+(run.source==='manual'?'button':'scheduled');btn.disabled=false;}
+}
+async function prFetchLatest(){
+  try{
+    var res=await sb.from('price_runs')
+      .select('id,status,source,requested_at,started_at,finished_at,error,changelog')
+      .order('requested_at',{ascending:false}).limit(1);
+    if(res.error){ // table missing (migration not run yet) — leave drop-zone mode
+      $('#prStatus').textContent='run history unavailable — has 03_price_runs.sql been run in Supabase?';
+      return;
+    }
+    var run=res.data&&res.data[0];
+    prSetStatus(run||null);
+    if(run&&run.changelog&&run.id!==prLoadedRunId){
+      prLoadedRunId=run.id;
+      prLoad(run.changelog);
+    }
+    if(run&&(run.status==='requested'||run.status==='running')) prStartPoll(); else prStopPoll();
+  }catch(e){}
+}
+function prStartPoll(){if(prPollTimer)return;prPollTimer=setInterval(prFetchLatest,10000);}
+function prStopPoll(){if(prPollTimer){clearInterval(prPollTimer);prPollTimer=null;}}
+
+$('#prRunBtn').addEventListener('click',async function(){
+  this.disabled=true;
+  var res=await sb.from('price_runs').insert({status:'requested',source:'manual'});
+  if(res.error){toast('Error: '+res.error.message);this.disabled=false;return;}
+  toast('Price update requested');
+  prFetchLatest();
+});
+
+// refresh when the tab is opened, and live when the watcher updates a run
+$$('nav button').forEach(function(b){if(b.dataset.v==='report')b.addEventListener('click',prFetchLatest);});
+sb.channel('pricerun')
+  .on('postgres_changes',{event:'*',schema:'public',table:'price_runs'},function(){prFetchLatest();})
+  .subscribe();
+setTimeout(prFetchLatest,1500); // initial fetch once auth has settled
+})();
 
 init();
 </script>
