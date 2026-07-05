@@ -34,7 +34,12 @@
   .who{font-family:var(--mono);font-size:12px;color:var(--dim);display:flex;align-items:center;gap:14px}
   .who a{color:var(--accent);cursor:pointer}
   nav{display:flex;gap:4px;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap;justify-content:center}
-  nav button{background:transparent;border:1px solid transparent;color:var(--dim);padding:8px 16px;border-radius:6px;font-family:var(--mono);font-size:13px;font-weight:500}
+  nav button{background:transparent;border:1px solid transparent;color:var(--dim);padding:8px 16px;border-radius:6px;font-family:var(--mono);font-size:13px;font-weight:500;white-space:nowrap}
+  .navdrop{position:relative}
+  .navdrop .navmenu{display:none;position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px;z-index:30;min-width:170px;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  .navdrop.open .navmenu{display:flex}
+  .navdrop .navmenu button{text-align:left;width:100%}
+  .navdrop.open .navdrop-toggle{color:var(--txt)}
   nav button:hover{color:var(--txt)}
   nav button.on{background:var(--panel2);color:var(--accent);border-color:var(--line)}
   .view{display:none}.view.on{display:block}
@@ -169,10 +174,15 @@
     <button data-v="builder">Recipe Builder</button>
     <button data-v="molds">Molds</button>
     <button data-v="ingredients">On Hand</button>
-    <button data-v="pricelist">Price List</button>
-    <button data-v="trends">Price Trends</button>
-    <button data-v="report">Price Report</button>
-    <button data-v="pricing">Pricing</button>
+    <div class="navdrop" id="navPricing">
+      <button type="button" class="navdrop-toggle">Pricing <span style="font-size:10px">▾</span></button>
+      <div class="navmenu">
+        <button data-v="pricelist">Price List</button>
+        <button data-v="trends">Price Trends</button>
+        <button data-v="report">Price Report</button>
+        <button data-v="pricing">Pricing Calculator</button>
+      </div>
+    </div>
   </nav>
 
   <!-- DASHBOARD -->
@@ -2242,7 +2252,16 @@ function renderPrice(){
   $('#prResult').innerHTML=`<div class="row" style="margin:8px 0 4px"><div class="stat"><div class="v">${money(f.costPerBar)}</div><div class="l">Cost / bar</div></div><div class="stat"><div class="v">${money(f.totalCost)}</div><div class="l">Cost / batch (${f.bars} bars)</div></div></div><div class="margin-grid">${boxes}</div><p class="dim mono" style="font-size:11px;margin-top:14px">price = cost ÷ (1 − margin). Costs use last-5-avg + buffer per ingredient.</p>`;
 }
 
-$$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');$$('.view').forEach(v=>v.classList.remove('on'));$('#v-'+b.dataset.v).classList.add('on');});
+$$('nav button[data-v]').forEach(b=>b.onclick=()=>{
+  $$('nav button').forEach(x=>x.classList.remove('on'));
+  $$('.view').forEach(v=>v.classList.remove('on'));
+  $('#v-'+b.dataset.v).classList.add('on');
+  const drop=b.closest('.navdrop');
+  if(drop){drop.querySelector('.navdrop-toggle').classList.add('on');drop.classList.remove('open');}
+  else b.classList.add('on');
+});
+$('#navPricing .navdrop-toggle').onclick=e=>{e.stopPropagation();$('#navPricing').classList.toggle('open');};
+document.addEventListener('click',e=>{if(!e.target.closest('#navPricing'))$('#navPricing').classList.remove('open');});
 
 /* =================== PRICE REPORT TAB =================== */
 (function(){
