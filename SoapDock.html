@@ -2265,6 +2265,7 @@ function renderPrice(){
 let PRC_SNAPS=[], prcChecked=0;
 const SELL_PRICE=7; // standard bar price for margin-drift pills
 
+function prcFmtD(x){const d=new Date(x);return isNaN(d)?'':(d.getMonth()+1)+'/'+d.getDate();}
 function prcCostPerKg(r){try{return computeFormula(r,{total_oil_g:1000,bars:1},[]).totalCost;}catch(e){return 0;}}
 
 async function prcLoadSnapshots(){
@@ -2302,7 +2303,7 @@ function prcTrendHTML(r,m,f){
   const scale=num(m.total_oil_g,1000)/1000/Math.max(num(m.bars,1),1); // kg-cost → cost/bar for this mold
   if(snaps.length<1)return '';
   if(snaps.length<2){
-    return `<div style="margin-top:16px"><h3 style="margin-top:0">Cost over time</h3><p class="dim mono" style="font-size:12px">Tracking started ${prFmtD(snaps[0].taken_at)} — history builds from here as ingredient prices move.</p></div>`;
+    return `<div style="margin-top:16px"><h3 style="margin-top:0">Cost over time</h3><p class="dim mono" style="font-size:12px">Tracking started ${prcFmtD(snaps[0].taken_at)} — history builds from here as ingredient prices move.</p></div>`;
   }
   const pts=snaps.map(s=>({t:new Date(s.taken_at),v:num(s.cost_per_kg,0)*scale}));
   const now=pts[pts.length-1].v, first=pts[0].v;
@@ -2326,10 +2327,10 @@ function prcTrendHTML(r,m,f){
   const dots=pts.map(p=>`<circle cx="${X(p.t.getTime()).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join('');
   const rising=now>first;
   const svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="cost per bar over time"><polyline points="${line}" fill="none" stroke="${rising?'var(--bad)':'var(--good)'}" stroke-width="2" opacity="0.85"/>${dots}</svg>`;
-  return `<div style="margin-top:16px"><h3 style="margin-top:0">Cost over time <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">— this recipe in this mold, since ${prFmtD(pts[0].t)}</span></h3>
+  return `<div style="margin-top:16px"><h3 style="margin-top:0">Cost over time <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">— this recipe in this mold, since ${prcFmtD(pts[0].t)}</span></h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <span class="pill sd">now ${money(now)}/bar</span>
-      ${pill('since '+prFmtD(pts[0].t),first,now)}
+      ${pill('since '+prcFmtD(pts[0].t),first,now)}
       ${base30&&base30!==pts[pts.length-1]?pill('30 days',base30.v,now):''}
       ${marginPill}
     </div>${svg}</div>`;
