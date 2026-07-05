@@ -69,6 +69,8 @@
   .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
   .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
   .pill.sd{color:var(--accent);border-color:var(--accent2)}
+  .pill.up{color:var(--bad);border-color:var(--bad)}
+  .pill.dn{color:var(--good);border-color:var(--good)}
   .stat{flex:1;min-width:160px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px}
   .stat .v{font-family:var(--mono);font-size:32px;font-weight:600;color:var(--accent);line-height:1}
   .stat .l{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-top:10px}
@@ -797,6 +799,7 @@ async function loadAll(){
   restOk=![i,r,b,p,m,a,pl].some(x=>x.error);
   refreshSync();
   ING=i.data||[];REC=r.data||[];BAT=b.data||[];PUR=p.data||[];MOLD=m.data||[];ADDIN=a.data||[];PL=pl.data||[];PH=(ph&&ph.data)||[];
+  prcLoadSnapshots();
   renderAll();
 }
 // ---- SYNC BADGE + REALTIME (REST decides online/offline; realtime only upgrades to "live") ----
@@ -2255,7 +2258,81 @@ function renderPrice(){
   if(!r||!m){$('#prResult').innerHTML='<div class="empty">Pick a recipe and mold.</div>';return;}
   const f=computeFormula(r,m,[]);const margins=$('#prMargins').value.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
   const boxes=margins.map(mg=>{const p=mg>=100?0:f.costPerBar/(1-mg/100);return `<div class="margin-box"><div class="pct">${mg}% margin</div><div class="price">${money(p)}</div><div class="sub">per bar · batch ${money(p*f.bars)}</div></div>`;}).join('');
-  $('#prResult').innerHTML=`<div class="row" style="margin:8px 0 4px"><div class="stat"><div class="v">${money(f.costPerBar)}</div><div class="l">Cost / bar</div></div><div class="stat"><div class="v">${money(f.totalCost)}</div><div class="l">Cost / batch (${f.bars} bars)</div></div></div><div class="margin-grid">${boxes}</div><p class="dim mono" style="font-size:11px;margin-top:14px">price = cost ÷ (1 − margin). Costs use last-5-avg + buffer per ingredient.</p>`;
+  $('#prResult').innerHTML=`<div class="row" style="margin:8px 0 4px"><div class="stat"><div class="v">${money(f.costPerBar)}</div><div class="l">Cost / bar</div></div><div class="stat"><div class="v">${money(f.totalCost)}</div><div class="l">Cost / batch (${f.bars} bars)</div></div></div><div class="margin-grid">${boxes}</div>${prcTrendHTML(r,m,f)}<p class="dim mono" style="font-size:11px;margin-top:14px">price = cost ÷ (1 − margin). Costs use last-5-avg + buffer per ingredient.</p>`;
+}
+
+/* ---- recipe cost tracking (snapshots of cost per 1kg oils) ---- */
+let PRC_SNAPS=[], prcChecked=0;
+const SELL_PRICE=7; // standard bar price for margin-drift pills
+
+function prcCostPerKg(r){try{return computeFormula(r,{total_oil_g:1000,bars:1},[]).totalCost;}catch(e){return 0;}}
+
+async function prcLoadSnapshots(){
+  try{
+    const res=await fetchAll('recipe_cost_snapshots','taken_at',{ascending:true});
+    if(res.error)return; // table not created yet — feature stays dormant
+    PRC_SNAPS=res.data||[];
+    prcSnapshotCheck();
+  }catch(e){}
+}
+
+async function prcSnapshotCheck(){
+  // capture at most once per 10 min per session; only rows whose cost moved
+  if(Date.now()-prcChecked<600000)return;
+  prcChecked=Date.now();
+  const latest={};
+  PRC_SNAPS.forEach(s=>{latest[s.recipe_id]=s;}); // sorted ascending → last wins
+  const rows=[];
+  REC.forEach(r=>{
+    const c=prcCostPerKg(r);
+    if(!(c>0))return;
+    const prev=latest[r.id];
+    if(!prev||Math.abs(c-num(prev.cost_per_kg,0))/num(prev.cost_per_kg,c)>0.001){
+      rows.push({recipe_id:r.id,cost_per_kg:+c.toFixed(4)});
+    }
+  });
+  if(!rows.length)return;
+  const res=await sb.from('recipe_cost_snapshots').insert(rows).select();
+  if(!res.error&&res.data){PRC_SNAPS=PRC_SNAPS.concat(res.data);if($('#v-pricing').classList.contains('on'))renderPrice();}
+}
+
+function prcTrendHTML(r,m,f){
+  const snaps=PRC_SNAPS.filter(s=>s.recipe_id===r.id)
+    .slice().sort((a,b)=>new Date(a.taken_at)-new Date(b.taken_at));
+  const scale=num(m.total_oil_g,1000)/1000/Math.max(num(m.bars,1),1); // kg-cost → cost/bar for this mold
+  if(snaps.length<1)return '';
+  if(snaps.length<2){
+    return `<div style="margin-top:16px"><h3 style="margin-top:0">Cost over time</h3><p class="dim mono" style="font-size:12px">Tracking started ${prFmtD(snaps[0].taken_at)} — history builds from here as ingredient prices move.</p></div>`;
+  }
+  const pts=snaps.map(s=>({t:new Date(s.taken_at),v:num(s.cost_per_kg,0)*scale}));
+  const now=pts[pts.length-1].v, first=pts[0].v;
+  const d30=new Date(Date.now()-30*864e5);
+  let base30=null;for(const p of pts){if(p.t<=d30)base30=p;} // latest snapshot at/before 30d ago
+  function pill(label,from,to){
+    const d=to-from;if(Math.abs(d)<0.005)return `<span class="pill">${label}: steady at ${money(to)}</span>`;
+    const cls=d>0?'up':'dn',arrow=d>0?'▲':'▼';
+    const pct=from?Math.abs(d/from*100).toFixed(1):'0';
+    return `<span class="pill ${cls}">${label}: ${arrow} ${d>0?'+':'−'}${Math.abs(d)<1?(Math.abs(d)*100).toFixed(0)+'¢':money(Math.abs(d))} (${pct}%)</span>`;
+  }
+  const mNow=(1-now/SELL_PRICE)*100, mFirst=(1-first/SELL_PRICE)*100;
+  const marginPill=`<span class="pill ${mNow<mFirst-0.05?'up':''}">margin @ $${SELL_PRICE}: ${mNow.toFixed(0)}%${Math.abs(mNow-mFirst)>=0.5?' (was '+mFirst.toFixed(0)+'%)':''}</span>`;
+  // sparkline
+  const W=560,H=54,P=6;
+  const t0=pts[0].t.getTime(),t1=pts[pts.length-1].t.getTime()||t0+1;
+  let lo=Math.min.apply(null,pts.map(p=>p.v)),hi=Math.max.apply(null,pts.map(p=>p.v));
+  if(hi-lo<0.01){lo-=0.05;hi+=0.05;}
+  const X=t=>P+(t-t0)/Math.max(t1-t0,1)*(W-2*P), Y=v=>H-P-(v-lo)/(hi-lo)*(H-2*P);
+  const line=pts.map(p=>X(p.t.getTime()).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
+  const dots=pts.map(p=>`<circle cx="${X(p.t.getTime()).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join('');
+  const rising=now>first;
+  const svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="cost per bar over time"><polyline points="${line}" fill="none" stroke="${rising?'var(--bad)':'var(--good)'}" stroke-width="2" opacity="0.85"/>${dots}</svg>`;
+  return `<div style="margin-top:16px"><h3 style="margin-top:0">Cost over time <span class="dim" style="text-transform:none;letter-spacing:0;font-weight:400">— this recipe in this mold, since ${prFmtD(pts[0].t)}</span></h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <span class="pill sd">now ${money(now)}/bar</span>
+      ${pill('since '+prFmtD(pts[0].t),first,now)}
+      ${base30&&base30!==pts[pts.length-1]?pill('30 days',base30.v,now):''}
+      ${marginPill}
+    </div>${svg}</div>`;
 }
 
 $$('nav button[data-v]').forEach(b=>b.onclick=()=>{
