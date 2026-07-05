@@ -2256,9 +2256,16 @@ $$('nav button[data-v]').forEach(b=>b.onclick=()=>{
   $$('nav button').forEach(x=>x.classList.remove('on'));
   $$('.view').forEach(v=>v.classList.remove('on'));
   $('#v-'+b.dataset.v).classList.add('on');
+  const toggle=$('#navPricing .navdrop-toggle');
   const drop=b.closest('.navdrop');
-  if(drop){drop.querySelector('.navdrop-toggle').classList.add('on');drop.classList.remove('open');}
-  else b.classList.add('on');
+  if(drop){
+    toggle.classList.add('on');
+    toggle.innerHTML=esc(b.textContent)+' <span style="font-size:10px">▾</span>';
+    drop.classList.remove('open');
+  } else {
+    b.classList.add('on');
+    toggle.innerHTML='Pricing <span style="font-size:10px">▾</span>';
+  }
 });
 $('#navPricing .navdrop-toggle').onclick=e=>{e.stopPropagation();$('#navPricing').classList.toggle('open');};
 document.addEventListener('click',e=>{if(!e.target.closest('#navPricing'))$('#navPricing').classList.remove('open');});
