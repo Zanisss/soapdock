@@ -146,6 +146,12 @@
   #prTable th:hover{color:var(--accent)}
   #prTable th .arr{color:var(--accent)}
   .prCount{font-family:var(--mono);font-size:11px;color:var(--dim);margin:6px 0}
+  .prTGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}
+  .prTCard{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px 16px 12px}
+  .prTCard h4{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--txt);margin-bottom:10px;letter-spacing:.3px}
+  .prTBig{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1;margin-bottom:8px}
+  .prTNet{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:10px}
+  .prTFoot{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
 </style>
 </head>
 <body>
@@ -2470,45 +2476,82 @@ function prSetStatus(run){
 
 // summary derived client-side from a parsed report (fallback + self-heal for old rows)
 function prSummaryFromReport(rep){
-  return {total:rep.total!=null?rep.total:rep.suppliers.reduce(function(a,s){return a+s.changes.length;},0),
+  return {v:2,total:rep.total!=null?rep.total:rep.suppliers.reduce(function(a,s){return a+s.changes.length;},0),
     suppliers:rep.suppliers.map(function(s){
       var n=s.changes.length,u=s.changes.filter(function(c){return c.delta>0;}).length;
       var avg=n?s.changes.reduce(function(a,c){return a+c.pct;},0)/n:0;
+      var net=s.changes.reduce(function(a,c){return a+c.delta;},0);
       return {name:s.name,mode:s.mode,changes:s.mode==='watch'?(s.declared||0):n,up:u,down:n-u,
-        avg_pct:+avg.toFixed(2),not_found:s.notFound||0};
+        avg_pct:+avg.toFixed(2),net:+net.toFixed(4),not_found:s.notFound||0};
     })};
 }
 
 function prRenderTrend(){
-  var runs=prRunsCache.filter(function(r){return r.status==='done'&&r.summary;});
+  var runs=prRunsCache.filter(function(r){return r.status==='done'&&r.summary;})
+    .slice().sort(function(a,b){return new Date(a.finished_at||a.requested_at)-new Date(b.finished_at||b.requested_at);});
   var box=$('#prTrend');
-  if(runs.length<1){box.style.display='none';return;}
-  var agg={},first=null,last=null;
+  if(!runs.length){box.style.display='none';return;}
+  var agg={},first=runs[0].finished_at||runs[0].requested_at;
   runs.forEach(function(r){
     var t=r.finished_at||r.requested_at;
-    if(!first||t<first)first=t; if(!last||t>last)last=t;
     (r.summary.suppliers||[]).forEach(function(s){
       if(s.mode==='watch')return;
-      var a=agg[s.name]||(agg[s.name]={changes:0,wsum:0,runs:0,lastMoved:null});
-      a.runs++;
+      var a=agg[s.name]||(agg[s.name]={changes:0,wsum:0,net:0,lastMoved:null,series:[]});
+      a.series.push({t:t,avg:s.avg_pct||0,net:s.net||0,changes:s.changes||0});
       if(s.changes>0){
         a.changes+=s.changes;
-        a.wsum+=s.avg_pct*s.changes;
+        a.wsum+=(s.avg_pct||0)*s.changes;
+        a.net+=(s.net||0);
         if(!a.lastMoved||t>a.lastMoved)a.lastMoved=t;
       }
     });
   });
   var names=Object.keys(agg);
   if(!names.length){box.style.display='none';return;}
-  var rows=names.map(function(n){
+
+  function spark(series){
+    var W=150,H=40,mid=H/2,n=series.length;
+    var maxA=0.001;series.forEach(function(p){if(Math.abs(p.avg)>maxA)maxA=Math.abs(p.avg);});
+    var bw=Math.min(16,Math.max(4,Math.floor(W/Math.max(n,1))-3));
+    var step=n>1?(W-bw)/(n-1):0;
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="per-run change">';
+    svg+='<line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--line)" stroke-width="1"/>';
+    series.forEach(function(p,i){
+      var x=n>1?i*step:(W-bw)/2;
+      var h=Math.abs(p.avg)/maxA*(mid-3);
+      if(p.changes===0||h<1.5){
+        svg+='<rect x="'+x+'" y="'+(mid-1)+'" width="'+bw+'" height="2" rx="1" fill="var(--dim)" opacity="0.5"/>';
+      }else if(p.avg>=0){
+        svg+='<rect x="'+x+'" y="'+(mid-h)+'" width="'+bw+'" height="'+h+'" rx="2" fill="var(--bad)" opacity="0.85"/>';
+      }else{
+        svg+='<rect x="'+x+'" y="'+mid+'" width="'+bw+'" height="'+h+'" rx="2" fill="var(--good)" opacity="0.85"/>';
+      }
+    });
+    svg+='</svg>';
+    return svg;
+  }
+
+  var cards=names.map(function(n){
     var a=agg[n];
     var avg=a.changes?a.wsum/a.changes:0;
-    var right=a.changes
-      ?'<span class="'+(avg>=0?'prUp':'prDown')+'">'+prPct(avg)+' avg</span> across '+a.changes+' changes · last moved '+prFmtD(a.lastMoved)
-      :'<span class="prDown">flat</span> — no changes in window';
-    return '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:3px 0;font-family:var(--mono);font-size:12px"><span>'+esc(n)+'</span><span class="dim">'+right+'</span></div>';
+    var flat=a.changes===0;
+    var big=flat
+      ?'<span class="dim">flat</span>'
+      :'<span class="'+(avg>=0?'prUp':'prDown')+'">'+(avg>=0?'▲ ':'▼ ')+prPct(avg)+'</span>';
+    var netStr=flat?'no movement in window'
+      :'<span class="'+(a.net>=0?'prUp':'prDown')+'">'+(a.net>=0?'+':'−')+'$'+Math.abs(a.net).toFixed(2)+'</span> net across '+a.changes.toLocaleString()+' changes';
+    var foot=flat?(a.series.length+' run'+(a.series.length>1?'s':'')+' · steady')
+      :('last moved '+prFmtD(a.lastMoved)+' · '+a.series.length+' run'+(a.series.length>1?'s':''));
+    return '<div class="prTCard">'
+      +'<h4>'+esc(n)+'</h4>'
+      +'<div class="prTBig">'+big+'</div>'
+      +'<div class="prTNet">'+netStr+'</div>'
+      +spark(a.series)
+      +'<div class="prTFoot">'+esc(foot)+'</div>'
+      +'</div>';
   }).join('');
-  box.innerHTML='<h2>Supplier trend <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0">— across '+runs.length+' run'+(runs.length>1?'s':'')+' since '+prFmtD(first)+'</span></h2>'+rows;
+  box.innerHTML='<h2>Supplier trend <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0">— running totals across '+runs.length+' run'+(runs.length>1?'s':'')+' since '+prFmtD(first)+'</span></h2>'
+    +'<div class="prTGrid">'+cards+'</div>';
   box.style.display='';
 }
 
@@ -2540,8 +2583,8 @@ async function prPickRun(id){
     if(rep.suppliers.length){
       prRender(rep);
       try{localStorage.setItem(PR_KEY,run.changelog);}catch(e){}
-      // self-heal: store the summary on rows published before summaries existed
-      if(!run.summary){
+      // self-heal: store/upgrade the summary on rows missing net-drift data
+      if(!run.summary||run.summary.v!==2){
         var summary=prSummaryFromReport(rep);
         sb.from('price_runs').update({summary:summary}).eq('id',run.id).then(function(){prLoadRunList();});
       }
