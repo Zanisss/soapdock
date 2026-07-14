@@ -2116,11 +2116,35 @@ window.delPl=async id=>{
   await sb.from('price_list').delete().eq('id',id);toast('Removed');loadAll();
 };
 
-window.logPurchaseFromPL=id=>{
+window.logPurchaseFromPL=async id=>{
   const p=PL.find(x=>x.id===id);if(!p)return;
   // Resolve target ingredient: linked id first, then exact name match (case-insensitive)
   let ing=p.ingredient_id?ingById(p.ingredient_id):null;
   if(!ing&&p.name) ing=ING.find(i=>i.name.toLowerCase()===p.name.toLowerCase());
+  // One-click path: if the PL row has size, unit, and cost data, write the purchase directly
+  const _gPer={lb:453.592,kg:1000,g:1,oz:28.3495};
+  const _g=(num(p.pkg_size)||0)*(_gPer[(p.pkg_unit||'').toLowerCase()]||0);
+  const _price=_g&&p.cost_per_g?+(p.cost_per_g*_g).toFixed(2):0;
+  if(p.pkg_size&&p.pkg_unit&&_price>0){
+    if(!ing){
+      // Auto-create the ingredient from the PL row, then link it
+      const irec={name:p.name,category:p.category||'other',sap_naoh:num(p.sap_naoh,0),unit:'g',buffer_pct:10,cost_per_unit:0,qty_on_hand:0,updated_at:new Date().toISOString()};
+      const{data:newIng,error:ie}=await sb.from('ingredients').insert(irec).select().single();
+      if(ie){toast('Error creating ingredient: '+ie.message);return;}
+      ing=newIng;
+      await sb.from('price_list').update({ingredient_id:ing.id}).eq('id',p.id);
+    } else if(!p.ingredient_id){
+      // Ingredient existed by name match but PL row wasn't linked — link it for next time
+      await sb.from('price_list').update({ingredient_id:ing.id}).eq('id',p.id);
+    }
+    const prec={ingredient_id:ing.id,vendor:p.supplier||'',bought_on:new Date().toISOString().slice(0,10),pkg_size:num(p.pkg_size),pkg_unit:(p.pkg_unit||'').toLowerCase(),price_paid:_price};
+    const{error:pe}=await sb.from('purchases').insert(prec);
+    if(pe){toast('Error logging purchase: '+pe.message);return;}
+    toast('Purchase logged: '+p.pkg_size+' '+p.pkg_unit+' @ $'+_price.toFixed(2)+' \u2014 on hand updated');
+    await loadAll();
+    return;
+  }
+  // Fallback: PL row missing size/unit/cost \u2014 use the assisted prefill flow below
   // Switch to On Hand tab
   $$('nav button').forEach(x=>x.classList.remove('on'));
   document.querySelector('[data-v="ingredients"]').classList.add('on');
