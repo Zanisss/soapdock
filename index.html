@@ -1937,6 +1937,7 @@ function renderPriceList(){
   // 3. ADDIN — fragrances, EOs, micas (WSP, TFC, CandleScience, NG, Mad Micas)
   const onHandIds=new Set(PUR.map(p=>p.ingredient_id));
   const allItems=[];
+  const _mergedPlIds=new Set();
 
   // ING items — go into oil/wax/lye/additive/other categories
   ING.forEach(ing=>{
@@ -1947,17 +1948,25 @@ function renderPriceList(){
       const cpu=purchaseCostPerUnit(p,ing);
       if(cpu>0&&cpu<bestCPU){bestCPU=cpu;bestVendor=p.vendor||'';}
     });
+    // Merge: if a price-list row is linked to (or exactly named like) this ingredient,
+    // fold its pricing/pack/notes into this row instead of showing a duplicate line.
+    const linkedPl=PL.find(pl=>pl.ingredient_id===ing.id)||PL.find(pl=>!pl.ingredient_id&&pl.name&&pl.name.toLowerCase()===ing.name.toLowerCase());
+    if(linkedPl)_mergedPlIds.add(linkedPl.id);
     allItems.push({
       _src:'ing', id:ing.id, name:ing.name,
-      supplier:bestVendor, category:ing.category||'other',
-      sap_naoh:ing.sap_naoh, cost_per_g:null,
-      notes:'', product_url:null,
+      supplier:bestVendor||(linkedPl?linkedPl.supplier:'')||'', category:ing.category||'other',
+      sap_naoh:ing.sap_naoh, cost_per_g:linkedPl?linkedPl.cost_per_g:null,
+      pkg_size:linkedPl?linkedPl.pkg_size:null, pkg_unit:linkedPl?linkedPl.pkg_unit:null,
+      notes:(linkedPl&&linkedPl.notes)||'', product_url:(linkedPl&&linkedPl.product_url)||null,
+      _imgUrl:(linkedPl&&linkedPl.image_url)||null, _plId:linkedPl?linkedPl.id:null,
       _ing:ing, _onHand:onHandIds.has(ing.id)
     });
   });
 
   // PL items (Soaper's Choice etc.) — go into oil/wax/additive categories
+  // Skip rows already merged into their linked ingredient above.
   PL.forEach(p=>{
+    if(_mergedPlIds.has(p.id))return;
     allItems.push({_src:'pl', _onHand:false, _ing:null, ...p});
   });
 
@@ -2028,7 +2037,7 @@ function renderPriceList(){
       // Derive pack price from cost_per_g × grams-in-pack (we store cost/g, not pack price).
       const G_PER={lb:453.592,kg:1000,g:1,oz:28.3495,'fl oz':29.5735};
       let packInfo='';
-      if(!isAddin && !isIng && p.pkg_size && p.pkg_unit && p.cost_per_g){
+      if(!isAddin && p.pkg_size && p.pkg_unit && p.cost_per_g){
         const gp=G_PER[(p.pkg_unit||'').toLowerCase()]||0;
         const packPrice=gp?p.cost_per_g*p.pkg_size*gp:0;
         const unitLbl=UNIT_LBL[p.pkg_unit]||p.pkg_unit;
@@ -2043,8 +2052,9 @@ function renderPriceList(){
       const supplierCell=esc(p.supplier||'—');
       const notesCell=esc(p.notes||'');
       const sapCell=!isAddin?`<td class="num dim mono" style="font-size:11px">${sap}</td>`:'<td></td>';
-      const actions=isPlItem
-        ?`<button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${p.id}')">log purchase</button><button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${p.id}')">edit</button><button class="btn danger sm" onclick="delPl('${p.id}')">×</button>`
+      const _actId=(isIng&&p._plId)?p._plId:p.id;
+      const actions=(isPlItem||(isIng&&p._plId))
+        ?`<button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${_actId}')">log purchase</button><button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${_actId}')">edit</button><button class="btn danger sm" onclick="delPl('${_actId}')">×</button>`
         :`<button class="btn ghost sm" onclick="logPurchaseFromPL('${p.id}')">log purchase</button>`;
       return `<tr>
         <td><span style="display:flex;align-items:center;gap:6px">${nm}${badge}</span></td>
@@ -2117,7 +2127,20 @@ window.delPl=async id=>{
 };
 
 window.logPurchaseFromPL=async id=>{
-  const p=PL.find(x=>x.id===id);if(!p)return;
+  let p=PL.find(x=>x.id===id);
+  if(!p){
+    // Called with an ingredient id (ING row with no linked PL entry):
+    // open that ingredient's detail so the purchase form is right there.
+    const _i=ingById(id);if(!_i)return;
+    $$('nav button').forEach(x=>x.classList.remove('on'));
+    document.querySelector('[data-v="ingredients"]').classList.add('on');
+    $$('.view').forEach(v=>v.classList.remove('on'));$('#v-ingredients').classList.add('on');
+    openIngredient(_i.id);
+    setTimeout(()=>{$('#pDate').value=new Date().toISOString().slice(0,10);
+      document.querySelector('#ingDetailWrap .card').scrollIntoView({behavior:'smooth'});
+      toast('Enter package size and price, then Add purchase');},50);
+    return;
+  }
   // Resolve target ingredient: linked id first, then exact name match (case-insensitive)
   let ing=p.ingredient_id?ingById(p.ingredient_id):null;
   if(!ing&&p.name) ing=ING.find(i=>i.name.toLowerCase()===p.name.toLowerCase());
