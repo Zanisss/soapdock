@@ -2095,7 +2095,8 @@ function renderPriceList(){
           const packLbl=(v.pkg_size&&v.pkg_unit)?`${v.pkg_size} ${UNIT_LBL[v.pkg_unit]||v.pkg_unit}${packPrice?' @ '+money(packPrice):''}`:'—';
           const per=v.cost_per_g?plMoney(plPerUnit(v.cost_per_g))+'/'+plUnit:'—';
           const best=(ix===0&&bestCpg&&vs.length>1)?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:6px;color:var(--good);border-color:var(--good)">best $/'+plUnit+'</span>':'';
-          const nm=v.product_url?`<a href="${esc(v.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted">${esc(v.supplier||'—')} <span style="color:var(--accent);font-size:10px">↗</span></a>`:esc(v.supplier||'—');
+          const variant=(v.name&&v.name.toLowerCase()!==g.name.toLowerCase())?` <span class="dim" style="font-size:10px">· ${esc(v.name.replace(new RegExp('^'+g.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+',?\\s*','i'),''))}</span>`:'';
+          const nm=(v.product_url?`<a href="${esc(v.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted">${esc(v.supplier||'—')} <span style="color:var(--accent);font-size:10px">↗</span></a>`:esc(v.supplier||'—'))+variant;
           // target-qty math: rate cost + real outlay in whole packs
           let tCell='';
           if(targetG&&v.cost_per_g){
