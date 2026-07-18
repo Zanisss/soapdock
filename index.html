@@ -553,6 +553,10 @@
           <input id="plSearch" type="search" placeholder="Search oils, butters, additives…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer;white-space:nowrap"><input type="checkbox" id="plSearchNotes" checked style="cursor:pointer">search notes</label>
         </div>
         <div style="display:flex;gap:14px;margin:0 0 10px;flex-wrap:wrap;align-items:center">
+          <div id="plScopeTog" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+            <button data-s="mine" class="on" style="background:var(--accent);color:var(--bg);border:none;padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">our ingredients</button>
+            <button data-s="all" style="background:var(--bg);color:var(--txt);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">everything</button>
+          </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span class="dim mono" style="font-size:11px">show $/</span>
             <div id="plUnitTog" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
@@ -1941,6 +1945,7 @@ window.delPurch=async id=>{if(!confirm('Delete this purchase?'))return;await sb.
 // ---- PRICING ----
 // Unit toggle + target-qty state for the vendor comparison view
 let plUnit='lb';
+let plScope='mine';
 const PL_G_PER={lb:453.592,kg:1000,g:1,oz:28.3495,'fl oz':29.5735,fl_oz:29.5735};
 function plPerUnit(cpg){return cpg*(PL_G_PER[plUnit]||1);}
 function plMoney(v){return v>=0.1?('$'+v.toFixed(2)):('$'+v.toFixed(4));}
@@ -2007,6 +2012,7 @@ function renderPriceList(){
   // Filter groups: search matches group name or any vendor supplier/notes; supplier filter keeps groups with a matching vendor
   const words=searchQ?searchQ.split(/\s+/):[];
   const visGroups=[...groups.values()].filter(g=>{
+    if(plScope==='mine'&&!g.ing)return false;
     if(supFilter!=='*'&&!g.vendors.some(v=>(v.supplier||'').trim()===supFilter))return false;
     if(words.length){
       const hay=[g.name,...g.vendors.map(v=>v.supplier),...g.vendors.map(v=>v.notes)].filter(Boolean).join(' ').toLowerCase();
@@ -2022,6 +2028,7 @@ function renderPriceList(){
     notes:[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ')||a.notes||'',
     product_url:a.product_url||null, _imgUrl:a.image_url||null
   })).filter(p=>{
+    if(plScope==='mine')return false;
     if(supFilter!=='*'&&(p.supplier||'').trim()!==supFilter)return false;
     if(words.length){
       const searchNotes=$('#plSearchNotes').checked;
@@ -2041,6 +2048,11 @@ function renderPriceList(){
 
   const totalItems=visGroups.reduce((a,g)=>a+Math.max(g.vendors.length,1),0)+addinItems.length;
   $('#plEmpty').style.display=totalItems?'none':'block';
+  if(!totalItems){
+    $('#plEmpty').innerHTML=(plScope==='mine')
+      ?`No matches in our ingredients${searchQ?' for “'+esc(searchQ)+'”':''} — <button class="btn ghost sm" onclick="plSetScope('all')">search everything</button>`
+      :'No matches.';
+  }
   $('#plTotalCount').textContent=totalItems?'· '+totalItems+' items':'';
 
   const plAutoOpen=!!(searchQ||supFilter!=='*');
@@ -2063,8 +2075,16 @@ function renderPriceList(){
     }else{
       items.sort((a,b)=>a.name.localeCompare(b.name));
       body=items.map(g=>{
-        const onHand=g.ing&&onHandIds.has(g.ing.id);
-        const badge=onHand?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:6px">on hand</span>':'';
+        let badge='';
+        if(g.ing){
+          const st=ingStock(g.ing);
+          const iu=UNIT_LBL[g.ing.unit]||g.ing.unit||'g';
+          if(st.purchased>0){
+            badge=st.onHand>0.001
+              ?`<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:6px">on hand ${(iu==='g'&&st.onHand>=1000)?(st.onHand/1000).toFixed(1)+' kg':st.onHand.toFixed(0)+' '+iu}</span>`
+              :`<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:6px;color:var(--bad);border-color:var(--bad)">out</span>`;
+          }
+        }
         const sap=g.sap?`<span class="dim mono" style="font-size:10px;margin-left:10px">SAP ${g.sap}</span>`:'';
         // vendor rows sorted cheapest first
         const vs=g.vendors.slice().sort((a,b)=>(a.cost_per_g||9e9)-(b.cost_per_g||9e9));
@@ -2127,6 +2147,8 @@ $('#plSearch').addEventListener('input',renderPriceList);
 $('#plSearchNotes').addEventListener('change',renderPriceList);
 $('#plTargetQty').addEventListener('input',renderPriceList);
 $('#plTargetUnit').addEventListener('change',renderPriceList);
+window.plSetScope=s=>{plScope=s;$$('#plScopeTog button').forEach(x=>{const on=x.dataset.s===s;x.classList.toggle('on',on);x.style.background=on?'var(--accent)':'var(--bg)';x.style.color=on?'var(--bg)':'var(--txt)';});renderPriceList();};
+$$('#plScopeTog button').forEach(b=>b.onclick=()=>plSetScope(b.dataset.s));
 $$('#plUnitTog button').forEach(b=>b.onclick=()=>{plUnit=b.dataset.u;$$('#plUnitTog button').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.style.background=on?'var(--accent)':'var(--bg)';x.style.color=on?'var(--bg)':'var(--txt)';});renderPriceList();});
 
 $('#plSave').onclick=async()=>{
