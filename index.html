@@ -551,6 +551,22 @@
         <div style="display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap">
           <input id="plSearch" type="search" placeholder="Search oils, butters, additives…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer;white-space:nowrap"><input type="checkbox" id="plSearchNotes" checked style="cursor:pointer">search notes</label>
         </div>
+        <div style="display:flex;gap:14px;margin:0 0 10px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="dim mono" style="font-size:11px">show $/</span>
+            <div id="plUnitTog" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+              <button data-u="lb" class="on" style="background:var(--accent);color:var(--bg);border:none;padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">lb</button>
+              <button data-u="oz" style="background:var(--bg);color:var(--txt);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">oz</button>
+              <button data-u="g" style="background:var(--bg);color:var(--txt);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">g</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="dim mono" style="font-size:11px">I want to buy</span>
+            <input id="plTargetQty" type="number" min="0" step="any" placeholder="—" style="width:64px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:6px 8px;border-radius:8px;font-family:var(--mono);font-size:12px">
+            <select id="plTargetUnit" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:6px 8px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="lb" selected>lb</option><option value="oz">oz</option><option value="g">g</option><option value="kg">kg</option></select>
+            <span class="dim mono" id="plTargetHint" style="font-size:10px"></span>
+          </div>
+        </div>
         <div id="plGroups"></div>
         <div class="empty" id="plEmpty">No price list entries yet — run the Soaper's Choice SQL to populate.</div>
       </div>
@@ -1922,6 +1938,26 @@ $('#pSave').onclick=async()=>{
 window.delPurch=async id=>{if(!confirm('Delete this purchase?'))return;await sb.from('purchases').delete().eq('id',id);toast('Deleted');loadAll();};
 
 // ---- PRICING ----
+// Unit toggle + target-qty state for the vendor comparison view
+let plUnit='lb';
+const PL_G_PER={lb:453.592,kg:1000,g:1,oz:28.3495,'fl oz':29.5735,fl_oz:29.5735};
+function plPerUnit(cpg){return cpg*(PL_G_PER[plUnit]||1);}
+function plMoney(v){return v>=0.1?('$'+v.toFixed(2)):('$'+v.toFixed(4));}
+function plPackGrams(p){const g=PL_G_PER[(p.pkg_unit||'').toLowerCase()]||0;return g?num(p.pkg_size)*g:0;}
+function plPackPrice(p){const pg=plPackGrams(p);return (pg&&p.cost_per_g)?p.cost_per_g*pg:0;}
+// Trend from price_history for a price_list row: latest event within 90 days
+function plTrend(plId){
+  const evs=PH.filter(h=>h.item_table==='price_list'&&h.item_id===plId);
+  if(!evs.length)return '';
+  const cutoff=new Date(Date.now()-90*864e5).toISOString().slice(0,10);
+  const recent=evs.filter(e=>e.changed_on>=cutoff);
+  if(!recent.length)return '';
+  const e=recent[0]; // PH is sorted desc by changed_on
+  const pct=num(e.pct_change)||((num(e.new_cost)-num(e.old_cost))/(num(e.old_cost)||1)*100);
+  if(Math.abs(pct)<0.05)return '';
+  const up=pct>0;
+  return `<span class="mono" style="font-size:10px;color:var(--${up?'bad':'good'})" title="changed ${esc(e.changed_on)}">${up?'▲':'▼'}${Math.abs(pct).toFixed(1)}%</span>`;
+}
 function renderPriceList(){
   // refresh linked-ingredient picker
   const _plIng = $('#plIng'); if(_plIng) {
@@ -1930,145 +1966,156 @@ function renderPriceList(){
     if(cur) _plIng.value = cur;
   }
   const searchQ=($('#plSearch').value||'').toLowerCase().trim();
+  const tQty=num($('#plTargetQty').value);
+  const tUnit=$('#plTargetUnit').value||'lb';
+  const targetG=tQty>0?tQty*(PL_G_PER[tUnit]||1):0;
+  $('#plTargetHint').textContent=targetG?('= '+(targetG>=1000?(targetG/1000).toFixed(2)+' kg':Math.round(targetG)+' g')):'';
 
-  // Build combined item list from three sources:
-  // 1. ING  — ingredient library (oils, lye, waxes, additives)
-  // 2. PL   — supplier price list (Soaper's Choice etc.)
-  // 3. ADDIN — fragrances, EOs, micas (WSP, TFC, CandleScience, NG, Mad Micas)
   const onHandIds=new Set(PUR.map(p=>p.ingredient_id));
-  const allItems=[];
-  const _mergedPlIds=new Set();
 
-  // ING items — go into oil/wax/lye/additive/other categories
-  ING.forEach(ing=>{
-    // Cheapest vendor for this ingredient (best $/unit across purchase history)
-    const purchases=PUR.filter(p=>p.ingredient_id===ing.id);
-    let bestVendor='', bestCPU=Infinity;
-    purchases.forEach(p=>{
-      const cpu=purchaseCostPerUnit(p,ing);
-      if(cpu>0&&cpu<bestCPU){bestCPU=cpu;bestVendor=p.vendor||'';}
-    });
-    // Merge: if a price-list row is linked to (or exactly named like) this ingredient,
-    // fold its pricing/pack/notes into this row instead of showing a duplicate line.
-    const linkedPl=PL.find(pl=>pl.ingredient_id===ing.id)||PL.find(pl=>!pl.ingredient_id&&pl.name&&pl.name.toLowerCase()===ing.name.toLowerCase());
-    if(linkedPl)_mergedPlIds.add(linkedPl.id);
-    allItems.push({
-      _src:'ing', id:ing.id, name:ing.name,
-      supplier:bestVendor||(linkedPl?linkedPl.supplier:'')||'', category:ing.category||'other',
-      sap_naoh:ing.sap_naoh, cost_per_g:linkedPl?linkedPl.cost_per_g:null,
-      pkg_size:linkedPl?linkedPl.pkg_size:null, pkg_unit:linkedPl?linkedPl.pkg_unit:null,
-      notes:(linkedPl&&linkedPl.notes)||'', product_url:(linkedPl&&linkedPl.product_url)||null,
-      _imgUrl:(linkedPl&&linkedPl.image_url)||null, _plId:linkedPl?linkedPl.id:null,
-      _ing:ing, _onHand:onHandIds.has(ing.id)
-    });
-  });
-
-  // PL items (Soaper's Choice etc.) — go into oil/wax/additive categories
-  // Skip rows already merged into their linked ingredient above.
+  // ---------- GROUPED INGREDIENT COMPARISON (oils/waxes/lye/additives/etc.) ----------
+  // Key = ingredient_id when linked, else normalized name. Every PL row lands in a group;
+  // ingredients with no PL rows still get a group so the library stays browsable.
+  const groups=new Map(); // key -> {name, category, sap, ing, vendors:[plRow...]}
+  function groupFor(key,name,category,sap,ing){
+    if(!groups.has(key))groups.set(key,{key,name,category:category||'other',sap:sap||null,ing:ing||null,vendors:[]});
+    const g=groups.get(key);
+    if(ing&&!g.ing){g.ing=ing;g.name=ing.name;g.category=ing.category||g.category;g.sap=ing.sap_naoh||g.sap;}
+    return g;
+  }
+  ING.forEach(ing=>groupFor(ing.id,ing.name,ing.category,ing.sap_naoh,ing));
   PL.forEach(p=>{
-    if(_mergedPlIds.has(p.id))return;
-    allItems.push({_src:'pl', _onHand:false, _ing:null, ...p});
+    let g;
+    if(p.ingredient_id&&groups.has(p.ingredient_id))g=groups.get(p.ingredient_id);
+    else{
+      const byName=ING.find(i=>i.name.toLowerCase()===(p.name||'').toLowerCase());
+      g=byName?groups.get(byName.id):groupFor('nm:'+(p.name||'').toLowerCase(),p.name,p.category,p.sap_naoh,null);
+    }
+    g.vendors.push(p);
   });
 
-  // ADDIN items — fragrances → 'fragrance', EOs → 'eo', micas → 'mica'
-  ADDIN.forEach(a=>{
-    allItems.push({
-      _src:'addin', id:a.id, name:a.name,
-      supplier:a.supplier||'', category:a.type||'other',
-      sap_naoh:null, cost_per_g:a.cost||null,
-      notes:[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ')||a.notes||'',
-      product_url:a.product_url||null,
-      _ing:null, _onHand:false, _imgUrl:a.image_url||null
-    });
-  });
-
-  // Supplier dropdown from all items
+  // Supplier dropdown from PL rows + add-ins
   const supSel=$('#plSupFilter');
-  const sups=[...new Set(allItems.map(a=>(a.supplier||'').trim()).filter(Boolean))].sort();
-  const cur=supSel.value||'*';
-  supSel.innerHTML='<option value="*">All suppliers</option>'+
-    sups.map(s=>`<option value="${esc(s)}" ${s===cur?'selected':''}>${esc(s)}</option>`).join('');
-  if(cur!=='*'&&!sups.includes(cur))supSel.value='*';
+  const supAll=[...PL.map(p=>p.supplier),...ADDIN.map(a=>a.supplier)].map(s=>(s||'').trim()).filter(Boolean);
+  const sups=[...new Set(supAll)].sort();
+  const curSup=supSel.value||'*';
+  supSel.innerHTML='<option value="*">All suppliers</option>'+sups.map(s=>`<option value="${esc(s)}" ${s===curSup?'selected':''}>${esc(s)}</option>`).join('');
+  if(curSup!=='*'&&!sups.includes(curSup))supSel.value='*';
   const supFilter=supSel.value||'*';
 
-  // Filter
-  const filtered=allItems.filter(p=>{
-    if(supFilter!=='*'&&(p.supplier||'').trim()!==supFilter)return false;
-    if(searchQ){
-      const isScented=(p.category==='fragrance'||p.category==='eo'||p.category==='mica');
-      // 'search notes' toggle: when on, scented items also match on notes (oud rose).
-      // When off, name-only across everything (exact ingredient lookups).
-      const searchNotes=$('#plSearchNotes').checked;
-      const hay=((isScented&&searchNotes)
-        ?[p.name,p.supplier,p.notes]
-        :[p.name,p.supplier]).filter(Boolean).join(' ').toLowerCase();
-      if(!searchQ.split(/\s+/).every(w=>hay.includes(w)))return false;
+  // Filter groups: search matches group name or any vendor supplier/notes; supplier filter keeps groups with a matching vendor
+  const words=searchQ?searchQ.split(/\s+/):[];
+  const visGroups=[...groups.values()].filter(g=>{
+    if(supFilter!=='*'&&!g.vendors.some(v=>(v.supplier||'').trim()===supFilter))return false;
+    if(words.length){
+      const hay=[g.name,...g.vendors.map(v=>v.supplier),...g.vendors.map(v=>v.notes)].filter(Boolean).join(' ').toLowerCase();
+      if(!words.every(w=>hay.includes(w)))return false;
     }
     return true;
   });
 
-  // Categories — same as On Hand plus fragrance/eo/mica for add-ins
+  // ---------- ADD-INS (fragrances / EOs / micas) — unchanged flat rows ----------
+  const addinItems=ADDIN.map(a=>({
+    _src:'addin', id:a.id, name:a.name, supplier:a.supplier||'', category:a.type||'other',
+    cost_per_g:a.cost||null,
+    notes:[a.note_top,a.note_mid,a.note_base].filter(Boolean).join(' / ')||a.notes||'',
+    product_url:a.product_url||null, _imgUrl:a.image_url||null
+  })).filter(p=>{
+    if(supFilter!=='*'&&(p.supplier||'').trim()!==supFilter)return false;
+    if(words.length){
+      const searchNotes=$('#plSearchNotes').checked;
+      const hay=(searchNotes?[p.name,p.supplier,p.notes]:[p.name,p.supplier]).filter(Boolean).join(' ').toLowerCase();
+      if(!words.every(w=>hay.includes(w)))return false;
+    }
+    return true;
+  });
+
   const PL_ORDER=['oil','wax','lye','liquid','additive','fragrance','eo','mica','other'];
   const PL_NAME={oil:'Oils / Butters',wax:'Waxes',lye:'Lye',liquid:'Liquids',additive:'Additives',fragrance:'Fragrances',eo:'Essential Oils',mica:'Micas',other:'Other'};
   const PL_COLOR={oil:'var(--warn)',wax:'var(--violet)',lye:'var(--bad)',liquid:'var(--blue)',additive:'var(--good)',fragrance:'var(--warn)',eo:'var(--good)',mica:'var(--blue)',other:'var(--dim)'};
 
   const byCat={};
-  filtered.forEach(p=>{const c=p.category||'other';(byCat[c]=byCat[c]||[]).push(p);});
+  visGroups.forEach(g=>{const c=g.category||'other';(byCat[c]=byCat[c]||[]).push(g);});
+  addinItems.forEach(p=>{const c=p.category||'other';(byCat[c]=byCat[c]||[]).push(p);});
 
-  const totalItems=filtered.length;
+  const totalItems=visGroups.reduce((a,g)=>a+Math.max(g.vendors.length,1),0)+addinItems.length;
   $('#plEmpty').style.display=totalItems?'none':'block';
   $('#plTotalCount').textContent=totalItems?'· '+totalItems+' items':'';
 
+  const plAutoOpen=!!(searchQ||supFilter!=='*');
   let plHtml='';
   PL_ORDER.forEach(cat=>{
     const items=byCat[cat];if(!items||!items.length)return;
     const dot=PL_COLOR[cat]||'var(--dim)';
     const label=PL_NAME[cat]||cat;
     const isAddin=(cat==='fragrance'||cat==='eo'||cat==='mica');
-    const unit=cat==='mica'?'/¼tsp':'/oz';
-    const rows=items.map(p=>{
-      const isIng=p._src==='ing';
-      const isPlItem=p._src==='pl';
-      const ingCost=isIng?(()=>{const c=ingCosting(p._ing);return c.n?money4(c.buffered)+'/g':null;})():null;
-      const cpg=isAddin
-        ?(p.cost_per_g?money(p.cost_per_g)+unit:'—')
-        :(ingCost||(p.cost_per_g?money4(p.cost_per_g)+'/g':'—'));
-      // Pack info: show the size + total pack price so per-g isn't a false leader.
-      // Derive pack price from cost_per_g × grams-in-pack (we store cost/g, not pack price).
-      const G_PER={lb:453.592,kg:1000,g:1,oz:28.3495,'fl oz':29.5735};
-      let packInfo='';
-      if(!isAddin && p.pkg_size && p.pkg_unit && p.cost_per_g){
-        const gp=G_PER[(p.pkg_unit||'').toLowerCase()]||0;
-        const packPrice=gp?p.cost_per_g*p.pkg_size*gp:0;
-        const unitLbl=UNIT_LBL[p.pkg_unit]||p.pkg_unit;
-        packInfo=packPrice?`<div class="dim mono" style="font-size:10px;margin-top:1px">${p.pkg_size} ${unitLbl} @ ${money(packPrice)}</div>`:'';
-      }
-      const sap=(!isAddin&&p.sap_naoh)?p.sap_naoh:(!isAddin?'—':'');
-      const badge=p._onHand?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:4px">on hand</span>':'';
-      const sw=p._imgUrl?`<img src="${esc(p._imgUrl)}" class="swatch sm" loading="lazy" onerror="this.style.display='none'">` :'';
-      const nm=p.product_url
-        ?`<a href="${esc(p.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${sw}${esc(p.name)} <span style="color:var(--accent);font-size:11px">↗</span></a>`
-        :`${sw}${esc(p.name)}`;
-      const supplierCell=esc(p.supplier||'—');
-      const notesCell=esc(p.notes||'');
-      const sapCell=!isAddin?`<td class="num dim mono" style="font-size:11px">${sap}</td>`:'<td></td>';
-      const _actId=(isIng&&p._plId)?p._plId:p.id;
-      const actions=(isPlItem||(isIng&&p._plId))
-        ?`<button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${_actId}')">log purchase</button><button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${_actId}')">edit</button><button class="btn danger sm" onclick="delPl('${_actId}')">×</button>`
-        :`<button class="btn ghost sm" onclick="logPurchaseFromPL('${p.id}')">log purchase</button>`;
-      return `<tr>
-        <td><span style="display:flex;align-items:center;gap:6px">${nm}${badge}</span></td>
-        <td class="dim" style="font-size:11px">${supplierCell}</td>
-        <td class="dim" style="font-size:11px">${notesCell}</td>
-        ${sapCell}
-        <td class="num">${cpg}${packInfo}</td>
-        <td class="num" style="white-space:nowrap">${actions}</td></tr>`;
-    }).join('');
-    const hasSap=!isAddin;
-    const plAutoOpen=!!(searchQ||supFilter!=='*');
+    let body='';
+    if(isAddin){
+      const unit=cat==='mica'?'/¼tsp':'/oz';
+      const rows=items.map(p=>{
+        const cpg=p.cost_per_g?money(p.cost_per_g)+unit:'—';
+        const sw=p._imgUrl?`<img src="${esc(p._imgUrl)}" class="swatch sm" loading="lazy" onerror="this.style.display='none'">`:'';
+        const nm=p.product_url?`<a href="${esc(p.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${sw}${esc(p.name)} <span style="color:var(--accent);font-size:11px">↗</span></a>`:`${sw}${esc(p.name)}`;
+        return `<tr><td><span style="display:flex;align-items:center;gap:6px">${nm}</span></td><td class="dim" style="font-size:11px">${esc(p.supplier||'—')}</td><td class="dim" style="font-size:11px">${esc(p.notes||'')}</td><td class="num">${cpg}</td></tr>`;
+      }).join('');
+      body=`<table><thead><tr><th>Name</th><th>Supplier</th><th>Notes</th><th class="num">Cost</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }else{
+      items.sort((a,b)=>a.name.localeCompare(b.name));
+      body=items.map(g=>{
+        const onHand=g.ing&&onHandIds.has(g.ing.id);
+        const badge=onHand?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:6px">on hand</span>':'';
+        const sap=g.sap?`<span class="dim mono" style="font-size:10px;margin-left:10px">SAP ${g.sap}</span>`:'';
+        // vendor rows sorted cheapest first
+        const vs=g.vendors.slice().sort((a,b)=>(a.cost_per_g||9e9)-(b.cost_per_g||9e9));
+        const bestCpg=vs.length&&vs[0].cost_per_g?vs[0].cost_per_g:null;
+        const vRows=vs.map((v,ix)=>{
+          const packG=plPackGrams(v);
+          const packPrice=plPackPrice(v);
+          const packLbl=(v.pkg_size&&v.pkg_unit)?`${v.pkg_size} ${UNIT_LBL[v.pkg_unit]||v.pkg_unit}${packPrice?' @ '+money(packPrice):''}`:'—';
+          const per=v.cost_per_g?plMoney(plPerUnit(v.cost_per_g))+'/'+plUnit:'—';
+          const best=(ix===0&&bestCpg&&vs.length>1)?'<span class="pill sd" style="font-size:9px;padding:1px 5px;margin-left:6px;color:var(--good);border-color:var(--good)">best $/'+plUnit+'</span>':'';
+          const nm=v.product_url?`<a href="${esc(v.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted">${esc(v.supplier||'—')} <span style="color:var(--accent);font-size:10px">↗</span></a>`:esc(v.supplier||'—');
+          // target-qty math: rate cost + real outlay in whole packs
+          let tCell='';
+          if(targetG&&v.cost_per_g){
+            const rate=v.cost_per_g*targetG;
+            if(packG&&packPrice){
+              const packs=Math.max(1,Math.ceil(targetG/packG));
+              const outlay=packs*packPrice;
+              const leftover=packs*packG-targetG;
+              tCell=`<div class="mono" style="font-size:12px">${money(outlay)}<span class="dim" style="font-size:10px"> · ${packs}× ${v.pkg_size} ${UNIT_LBL[v.pkg_unit]||v.pkg_unit}</span></div><div class="dim mono" style="font-size:10px">rate ${money(rate)}${leftover>packG*0.05?' · +'+(leftover>=453?(leftover/453.592).toFixed(1)+' lb':Math.round(leftover/28.35)+' oz')+' extra':''}</div>`;
+            }else tCell=`<div class="mono" style="font-size:12px">${money(rate)}</div>`;
+          }
+          return `<tr>
+            <td style="padding-left:26px"><span style="display:flex;align-items:center;gap:4px;font-size:12px">${nm}${best}</span></td>
+            <td class="dim mono" style="font-size:11px;white-space:nowrap">${packLbl}</td>
+            <td class="num mono" style="font-size:12px;white-space:nowrap">${per} ${plTrend(v.id)}</td>
+            <td class="num">${tCell}</td>
+            <td class="dim" style="font-size:10px">${esc(v.notes||'')}</td>
+            <td class="num" style="white-space:nowrap"><button class="btn ghost sm" style="margin-right:4px" onclick="logPurchaseFromPL('${v.id}')">log purchase</button><button class="btn ghost sm" style="margin-right:4px" onclick="editPlFn('${v.id}')">edit</button><button class="btn danger sm" onclick="delPl('${v.id}')">×</button></td>
+          </tr>`;
+        }).join('');
+        // last-paid reference line — YOUR cost, kept visually separate from vendor list prices
+        let paidRow='';
+        if(g.ing){
+          const ps=PUR.filter(p=>p.ingredient_id===g.ing.id);
+          if(ps.length){
+            const last=ps[0]; // PUR sorted desc by bought_on
+            const lg=(PL_G_PER[(last.pkg_unit||'').toLowerCase()]||0)*num(last.pkg_size);
+            const lcpg=lg?num(last.price_paid)/lg:0;
+            if(lcpg)paidRow=`<tr><td style="padding-left:26px" colspan="2"><span class="dim mono" style="font-size:10px;font-style:italic">you paid — ${esc(last.vendor||'?')} · ${esc(last.bought_on)}</span></td><td class="num mono dim" style="font-size:11px;font-style:italic">${plMoney(plPerUnit(lcpg))}/${plUnit}</td><td colspan="3"></td></tr>`;
+          }
+        }
+        const noVendors=!vs.length?`<tr><td style="padding-left:26px" colspan="5"><span class="dim mono" style="font-size:10px">no vendor pricing yet</span></td><td class="num" style="white-space:nowrap">${g.ing?`<button class="btn ghost sm" onclick="openIngredient('${g.ing.id}')">details</button>`:''}</td></tr>`:'';
+        return `<tr style="background:var(--panel2)"><td colspan="6" style="padding:8px 10px"><span style="display:flex;align-items:center;font-family:var(--mono);font-size:13px;font-weight:600">${esc(g.name)}${badge}${sap}</span></td></tr>${vRows}${paidRow}${noVendors}`;
+      }).join('');
+      const tHead=`<tr><th>Vendor</th><th>Pack</th><th class="num">$/${plUnit}</th><th class="num">${targetG?'To buy '+tQty+' '+tUnit:''}</th><th></th><th></th></tr>`;
+      body=`<table><thead>${tHead}</thead><tbody>${body}</tbody></table>`;
+    }
+    const cnt=isAddin?items.length:items.reduce((a,g)=>a+Math.max(g.vendors.length,1),0);
     plHtml+=`<div class="cat-group">
-      <div class="cat-head${plAutoOpen?' open':''}" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${items.length}</span></div>
-      <div class="cat-body${plAutoOpen?' open':''}"><table><thead><tr><th>Name</th><th>Supplier</th><th>Notes</th>${hasSap?'<th class="num">SAP</th>':'<th></th>'}<th class="num">Cost</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="cat-head${plAutoOpen?' open':''}" onclick="toggleCat(this)"><span class="chev">▶</span><span class="catdot" style="background:${dot}"></span><span class="nm">${label}</span><span class="ct">${cnt}</span></div>
+      <div class="cat-body${plAutoOpen?' open':''}">${body}</div>
     </div>`;
   });
   $('#plGroups').innerHTML=plHtml;
@@ -2077,6 +2124,9 @@ function renderPriceList(){
 $('#plSupFilter').onchange=()=>renderPriceList();
 $('#plSearch').addEventListener('input',renderPriceList);
 $('#plSearchNotes').addEventListener('change',renderPriceList);
+$('#plTargetQty').addEventListener('input',renderPriceList);
+$('#plTargetUnit').addEventListener('change',renderPriceList);
+$$('#plUnitTog button').forEach(b=>b.onclick=()=>{plUnit=b.dataset.u;$$('#plUnitTog button').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.style.background=on?'var(--accent)':'var(--bg)';x.style.color=on?'var(--bg)':'var(--txt)';});renderPriceList();});
 
 $('#plSave').onclick=async()=>{
   const pkgSize=num($('#plPkgSize').value);
