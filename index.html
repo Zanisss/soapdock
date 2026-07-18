@@ -517,8 +517,8 @@
   <!-- PRICE LIST -->
   <div class="view" id="v-pricelist">
     <div class="row" style="align-items:flex-start;gap:20px">
-      <div class="card" style="flex:0 0 300px;min-width:260px">
-        <h2 id="plFormTitle">New Price List Entry</h2>
+      <div class="card" id="plFormCard" style="flex:0 0 300px;min-width:260px;display:none">
+        <h2 style="display:flex;justify-content:space-between;align-items:center"><span id="plFormTitle">New Price List Entry</span> <button class="btn ghost sm" onclick="plToggleForm(false)" style="font-weight:400">×</button></h2>
         <div class="field"><label>Name</label><input id="plName" placeholder="e.g. Olive Oil, Pomace"></div>
         <div class="field"><label>Linked ingredient <span class="dim" style="font-weight:400">(optional — enables "log purchase")</span></label><select id="plIng"><option value="">— none —</option></select></div>
         <div class="field"><label>Supplier</label><input id="plSupplier" placeholder="e.g. Soaper's Choice"></div>
@@ -546,7 +546,8 @@
       <div class="card" style="flex:1.7;min-width:380px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
           <h2 style="margin:0">Price List <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="plTotalCount"></span></h2>
-          <select id="plSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select>
+          <div style="display:flex;gap:8px;align-items:center"><button class="btn ghost sm" id="plAddBtn" onclick="plToggleForm(true)">+ add entry</button>
+          <select id="plSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select></div>
         </div>
         <div style="display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap">
           <input id="plSearch" type="search" placeholder="Search oils, butters, additives…" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer;white-space:nowrap"><input type="checkbox" id="plSearchNotes" checked style="cursor:pointer">search notes</label>
@@ -2145,7 +2146,7 @@ $('#plSave').onclick=async()=>{
   if(editPl){({error}=await sb.from('price_list').update(rec).eq('id',editPl));}
   else{({error}=await sb.from('price_list').insert(rec));}
   if(error){toast('Error: '+error.message);return;}
-  toast(editPl?'Updated':'Saved');clearPlForm();loadAll();
+  toast(editPl?'Updated':'Saved');plToggleForm(false);loadAll();
 };
 
 function clearPlForm(){
@@ -2156,7 +2157,13 @@ function clearPlForm(){
 }
 $('#plClear').onclick=clearPlForm;
 
+window.plToggleForm=show=>{
+  const c=$('#plFormCard');c.style.display=show?'':'none';
+  $('#plAddBtn').style.display=show?'none':'';
+  if(show){$('#plName').focus();}else{clearPlForm();}
+};
 window.editPlFn=id=>{
+  plToggleForm(true);
   const p=PL.find(x=>x.id===id);if(!p)return;
   editPl=id;
   $('#plName').value=p.name||'';$('#plSupplier').value=p.supplier||'';
