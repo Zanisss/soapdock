@@ -185,7 +185,7 @@
     <div class="navdrop" id="navPricing">
       <button type="button" class="navdrop-toggle">Pricing <span style="font-size:10px">▾</span></button>
       <div class="navmenu">
-        <button data-v="pricelist">Price List</button>
+        <button data-v="pricelist">Restock</button>
         <button data-v="trends">Price Trends</button>
         <button data-v="report">Price Report</button>
         <button data-v="pricing">Pricing Calculator</button>
@@ -545,7 +545,7 @@
       </div>
       <div class="card" style="flex:1.7;min-width:380px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-          <h2 style="margin:0">Price List <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="plTotalCount"></span></h2>
+          <h2 style="margin:0">Restock <span class="dim" style="font-weight:400;text-transform:none;letter-spacing:0" id="plTotalCount"></span></h2>
           <div style="display:flex;gap:8px;align-items:center"><button class="btn ghost sm" id="plAddBtn" onclick="plToggleForm(true)">+ add entry</button>
           <select id="plSupFilter" style="background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:8px;font-family:var(--mono);font-size:12px"><option value="*">All suppliers</option></select></div>
         </div>
@@ -554,8 +554,8 @@
         </div>
         <div style="display:flex;gap:14px;margin:0 0 10px;flex-wrap:wrap;align-items:center">
           <div id="plScopeTog" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
-            <button data-s="mine" class="on" style="background:var(--accent);color:var(--bg);border:none;padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">our ingredients</button>
-            <button data-s="all" style="background:var(--bg);color:var(--txt);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">everything</button>
+            <button data-s="mine" class="on" style="background:var(--accent);color:var(--bg);border:none;padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">restock ours</button>
+            <button data-s="all" style="background:var(--bg);color:var(--txt);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">shop everything</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span class="dim mono" style="font-size:11px">show $/</span>
@@ -2050,7 +2050,7 @@ function renderPriceList(){
   $('#plEmpty').style.display=totalItems?'none':'block';
   if(!totalItems){
     $('#plEmpty').innerHTML=(plScope==='mine')
-      ?`No matches in our ingredients${searchQ?' for “'+esc(searchQ)+'”':''} — <button class="btn ghost sm" onclick="plSetScope('all')">search everything</button>`
+      ?`No matches in our ingredients${searchQ?' for “'+esc(searchQ)+'”':''} — <button class="btn ghost sm" onclick="plSetScope('all')">shop everything</button>`
       :'No matches.';
   }
   $('#plTotalCount').textContent=totalItems?'· '+totalItems+' items':'';
