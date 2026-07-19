@@ -565,8 +565,8 @@
           <div style="display:flex;align-items:center;gap:6px">
             <span class="dim mono" style="font-size:11px">show $/</span>
             <div id="plUnitTog" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
-              <button data-u="lb" class="on" style="background:var(--accent);color:var(--bg);border:none;padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">lb</button>
-              <button data-u="oz" style="background:var(--bg);color:var(--txt);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">oz</button>
+              <button data-u="lb" style="background:var(--bg);color:var(--txt);border:none;padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">lb</button>
+              <button data-u="oz" class="on" style="background:var(--accent);color:var(--bg);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">oz</button>
               <button data-u="g" style="background:var(--bg);color:var(--txt);border:none;border-left:1px solid var(--line);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer">g</button>
             </div>
           </div>
@@ -1949,7 +1949,7 @@ window.delPurch=async id=>{if(!confirm('Delete this purchase?'))return;await sb.
 
 // ---- PRICING ----
 // Unit toggle + target-qty state for the vendor comparison view
-let plUnit='lb';
+let plUnit='oz';
 let plScope='mine';
 const PL_G_PER={lb:453.592,kg:1000,g:1,oz:28.3495,'fl oz':29.5735,fl_oz:29.5735};
 function plPerUnit(cpg){return cpg*(PL_G_PER[plUnit]||1);}
