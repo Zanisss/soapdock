@@ -154,6 +154,11 @@
   .prTBig{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1;margin-bottom:8px}
   .prTNet{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:10px}
   .prTFoot{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.ing-tbody.collapsed tr:not(.ing-head){display:none}
+.ing-head{cursor:pointer}
+.ing-head:hover td{background:var(--panel2)}
+.ing-head .ichev{display:inline-block;font-size:9px;color:var(--dim);margin-right:8px;transition:transform .15s}
+.ing-tbody:not(.collapsed) .ichev{transform:rotate(90deg)}
 </style>
 </head>
 <body>
@@ -2129,10 +2134,12 @@ function renderPriceList(){
           }
         }
         const noVendors=!vs.length?`<tr><td style="padding-left:26px" colspan="5"><span class="dim mono" style="font-size:10px">no vendor pricing yet</span></td><td class="num" style="white-space:nowrap">${g.ing?`<button class="btn ghost sm" onclick="openIngredient('${g.ing.id}')">details</button>`:''}</td></tr>`:'';
-        return `<tr style="background:var(--panel2)"><td colspan="6" style="padding:8px 10px"><span style="display:flex;align-items:center;font-family:var(--mono);font-size:13px;font-weight:600">${esc(g.name)}${badge}${sap}</span></td></tr>${vRows}${paidRow}${noVendors}`;
+        const summary=vs.length?`<span class="dim mono" style="font-size:10px;margin-left:auto;font-weight:400">${vs.length} vendor${vs.length>1?'s':''}${bestCpg?' · best '+plMoney(plPerUnit(bestCpg))+'/'+plUnit:''}</span>`:'<span class="dim mono" style="font-size:10px;margin-left:auto;font-weight:400">no vendors</span>';
+        const expand=!!searchQ;
+        return `<tbody class="ing-tbody${expand?'':' collapsed'}"><tr class="ing-head" onclick="this.closest('tbody').classList.toggle('collapsed')" style="background:var(--panel2)"><td colspan="6" style="padding:8px 10px"><span style="display:flex;align-items:center;font-family:var(--mono);font-size:13px;font-weight:600"><span class="ichev">▶</span>${esc(g.name)}${badge}${sap}${summary}</span></td></tr>${vRows}${paidRow}${noVendors}</tbody>`;
       }).join('');
       const tHead=`<tr><th>Vendor</th><th>Pack</th><th class="num">$/${plUnit}</th><th class="num">${targetG?'To buy '+tQty+' '+tUnit:''}</th><th></th><th></th></tr>`;
-      body=`<table><thead>${tHead}</thead><tbody>${body}</tbody></table>`;
+      body=`<table><thead>${tHead}</thead>${body}</table>`;
     }
     const cnt=isAddin?items.length:items.reduce((a,g)=>a+Math.max(g.vendors.length,1),0);
     plHtml+=`<div class="cat-group">
